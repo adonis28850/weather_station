@@ -1,0 +1,2620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Station Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #181926;
+            --bg-secondary: #1e2030;
+            --bg-card: #24273a;
+            --bg-elevated: #363a4f;
+            --text-primary: #cad3f5;
+            --text-secondary: #a5adcb;
+            --text-muted: #8087a2;
+            --accent-primary: #8aadf4;
+            --accent-secondary: #a6da95;
+            --accent-warning: #eed49f;
+            --accent-danger: #ed8796;
+            --accent-info: #7dc4e4;
+            --accent-mauve: #c6a0f6;
+            --accent-peach: #f5a97f;
+            --accent-rosewater: #f4dbd6;
+            --border-color: #363a4f;
+            --shadow-color: rgba(0, 0, 0, 0.25);
+        }
+        
+        body {
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: var(--text-primary);
+        }
+        
+        .dashboard-container {
+            background: rgba(30, 41, 59, 0.95);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px var(--shadow-color);
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        
+        .weather-card {
+            background: linear-gradient(135deg, #24273a 0%, #363a4f 100%);
+            color: var(--text-primary);
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px var(--shadow-color);
+            border: 1px solid var(--border-color);
+        }
+        
+        .weather-card h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin: 10px 0;
+            color: var(--text-primary);
+        }
+        
+        .weather-card h2 {
+            font-size: 1.5rem;
+            font-weight: 500;
+            margin: 0;
+            color: var(--text-secondary);
+        }
+        
+        .weather-card p {
+            margin: 5px 0;
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+        
+        .weather-card #current-date {
+            margin: 8px 0;
+            font-weight: 500;
+            color: var(--text-primary);
+            opacity: 0.9;
+        }
+        
+        .weather-card #battery-status {
+            font-size: 1.1rem;
+            color: var(--text-primary);
+            opacity: 0.9;
+        }
+        
+        .weather-icon-large {
+            font-size: 5rem;
+            color: var(--text-primary);
+            opacity: 0.9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100px;
+        }
+        
+        .astronomical-info {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 10px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        
+        .astronomical-item {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        
+        .astronomical-item i {
+            font-size: 1rem;
+            opacity: 0.8;
+        }
+        
+        .moon-phase {
+            margin-top: 4px;
+            padding-top: 4px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .moon-details {
+            font-size: 0.8rem;
+            gap: 12px;
+        }
+        
+        .moon-trend {
+            opacity: 0.7;
+            font-style: italic;
+        }
+        
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px var(--shadow-color);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 30px var(--shadow-color);
+        }
+        
+        .stat-icon {
+            font-size: 2rem;
+            margin-bottom: 12px;
+            opacity: 0.9;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.5px;
+        }
+        
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 500;
+        }
+        
+        .controls-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px var(--shadow-color);
+        }
+        
+        .controls-card .form-label {
+            color: var(--text-primary);
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+        
+        .controls-card .form-select,
+        .controls-card .form-control {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: 8px;
+        }
+        
+        .controls-card .form-select:focus,
+        .controls-card .form-control:focus {
+            background: var(--bg-secondary);
+            border-color: var(--accent-primary);
+            color: var(--text-primary);
+            box-shadow: 0 0 0 3px rgba(138, 173, 244, 0.1);
+        }
+        
+        .stats-summary-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px var(--shadow-color);
+        }
+        
+        .stats-summary-card h5 {
+            color: var(--text-primary);
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+        
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+        
+        .stat-item-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        .stat-item-value {
+            color: var(--text-primary);
+            font-weight: 600;
+            font-size: 1rem;
+        }
+        
+        .chart-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px var(--shadow-color);
+        }
+        
+        .chart-container h5 {
+            color: var(--text-primary);
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .last-updated {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-top: 10px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+        
+        .loading-spinner {
+            border: 4px solid var(--bg-elevated);
+            border-top: 4px solid var(--accent-primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .battery-ok { color: var(--accent-secondary); }
+        .battery-low { color: var(--accent-danger); }
+        
+        /* Chart styling */
+        canvas {
+            width: 100% !important;
+            height: 300px !important;
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--bg-elevated);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+        
+        /* Sortable table headers */
+        .sortable {
+            cursor: pointer;
+            user-select: none;
+            transition: background-color 0.2s;
+        }
+        
+        .sortable:hover {
+            background-color: var(--bg-elevated);
+        }
+        
+        .sort-icon {
+            font-size: 0.75rem;
+            margin-left: 4px;
+            opacity: 0.5;
+        }
+        
+        .sortable:hover .sort-icon {
+            opacity: 1;
+        }
+        
+        .sortable.asc .sort-icon {
+            opacity: 1;
+        }
+        
+        .sortable.desc .sort-icon {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="dashboard-container">
+            <h1 class="text-center mb-4">
+                <i class="bi bi-cloud-sun"></i> Weather Station Dashboard
+            </h1>
+            <p class="text-center mb-4" style="color: var(--text-secondary); font-size: 0.95rem;">
+                <i class="bi bi-geo-alt"></i>
+                <span id="location-coords">Loading location...</span>
+            </p>
+            
+            <!-- Tab Navigation -->
+            <ul class="nav nav-tabs mb-4" id="dashboardTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="current-tab" data-bs-toggle="tab" data-bs-target="#current" type="button" role="tab">
+                        <i class="bi bi-thermometer"></i> Current Weather
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab">
+                        <i class="bi bi-calendar3"></i> Historical Analytics
+                    </button>
+                </li>
+            </ul>
+            
+            <div class="tab-content" id="dashboardTabsContent">
+                <!-- Current Weather Tab -->
+                <div class="tab-pane fade show active" id="current" role="tabpanel">
+                    <div id="loading" class="loading">
+                        <div class="loading-spinner"></div>
+                        <p>Loading weather data...</p>
+                    </div>
+
+                    <div id="dashboard">
+                <!-- Current Weather -->
+                <div class="weather-card">
+                    <div class="row align-items-center">
+                        <div class="col-md-4">
+                            <h2 id="current-time">--</h2>
+                            <p id="current-date">--</p>
+                            <h1 id="current-temp">--°C</h1>
+                            <p id="current-model">--</p>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <div id="weather-icon" class="weather-icon-large">
+                                <i class="bi bi-cloud-sun"></i>
+                            </div>
+                            <div id="astronomical-info" class="astronomical-info">
+                                <div class="astronomical-item">
+                                    <i class="bi bi-sunrise"></i>
+                                    <span id="sunrise-time">--:--</span>
+                                </div>
+                                <div class="astronomical-item">
+                                    <i class="bi bi-sunset"></i>
+                                    <span id="sunset-time">--:--</span>
+                                </div>
+                                <div class="astronomical-item moon-phase">
+                                    <i id="moon-icon" class="bi bi-moon"></i>
+                                    <span id="moon-phase">--</span>
+                                </div>
+                                <div class="astronomical-item moon-details">
+                                    <span id="moon-illumination">--%</span>
+                                    <span id="moon-trend" class="moon-trend">--</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <div id="battery-status">
+                                <i class="bi bi-battery-full"></i> <span>--</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Current Stats -->
+                <div class="row">
+                    <div class="col-md-3 col-sm-6">
+                        <div class="stat-card text-center">
+                            <div class="stat-icon text-primary">
+                                <i class="bi bi-droplet"></i>
+                            </div>
+                            <div class="stat-value" id="current-humidity">--%</div>
+                            <div class="stat-label">Humidity</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <div class="stat-card text-center">
+                            <div class="stat-icon text-warning">
+                                <i class="bi bi-sun"></i>
+                            </div>
+                            <div class="stat-value" id="current-uv">--</div>
+                            <div class="stat-label">UV Index</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <div class="stat-card text-center">
+                            <div class="stat-icon text-info">
+                                <i class="bi bi-lightning"></i>
+                            </div>
+                            <div class="stat-value" id="current-lux">--</div>
+                            <div class="stat-label">Light (lux)</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <div class="stat-card text-center">
+                            <div class="stat-icon text-success">
+                                <i class="bi bi-cloud-rain"></i>
+                            </div>
+                            <div class="stat-value" id="current-rain">-- mm</div>
+                            <div class="stat-label">Today's Rain</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Wind Stats -->
+                <div class="row">
+                    <div class="col-md-4 col-sm-6">
+                        <div class="stat-card text-center">
+                            <div class="stat-icon text-secondary">
+                                <i class="bi bi-wind"></i>
+                            </div>
+                            <div class="stat-value" id="current-wind-speed">-- m/s</div>
+                            <div class="stat-label">Wind Speed</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 col-sm-6">
+                        <div class="stat-card text-center">
+                            <div class="stat-icon text-danger">
+                                <i class="bi bi-wind"></i>
+                            </div>
+                            <div class="stat-value" id="current-wind-gust">-- m/s</div>
+                            <div class="stat-label">Wind Gust</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 col-sm-6">
+                        <div class="stat-card text-center">
+                            <div class="stat-icon text-dark">
+                                <i class="bi bi-compass"></i>
+                            </div>
+                            <div class="stat-value" id="current-wind-dir">--°</div>
+                            <div class="stat-label">Wind Direction</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="controls-card mb-4">
+                    <div class="row align-items-center">
+                        <div class="col-md-4">
+                            <label class="form-label"><i class="bi bi-clock"></i> Time Range</label>
+                            <select id="time-range" class="form-select">
+                                <option value="1h">Last 1 Hour</option>
+                                <option value="6h">Last 6 Hours</option>
+                                <option value="24h" selected>Last 24 Hours</option>
+                                <option value="7d">Last 7 Days</option>
+                                <option value="1m">Last 1 Month</option>
+                                <option value="3m">Last 3 Months</option>
+                                <option value="6m">Last 6 Months</option>
+                                <option value="1y">Last 1 Year</option>
+                                <option value="custom">Custom Range</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4" id="custom-range-container" style="display: none;">
+                            <div class="row">
+                                <div class="col-6">
+                                    <label class="form-label">Start</label>
+                                    <input type="datetime-local" id="custom-start" class="form-control">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">End</label>
+                                    <input type="datetime-local" id="custom-end" class="form-control">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label"><i class="bi bi-graph-up"></i> Chart Type</label>
+                            <select id="chart-type" class="form-select">
+                                <option value="line" selected>Line Chart</option>
+                                <option value="bar">Bar Chart</option>
+                                <option value="area">Area Chart</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Statistics Summary -->
+                <div class="stats-summary-card">
+                    <h5><i class="bi bi-bar-chart"></i> Statistics Summary <span id="stats-time-range" style="font-weight: 400; font-size: 0.9em; color: var(--text-secondary);"></span></h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="stat-item">
+                                <span class="stat-item-label">Temperature (Min/Max/Avg)</span>
+                                <span class="stat-item-value" id="stats-temp">--/--/--°C</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-item-label">Humidity (Min/Max/Avg)</span>
+                                <span class="stat-item-value" id="stats-humidity">--/--/--%</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-item-label">Wind Speed (Max/Avg)</span>
+                                <span class="stat-item-value" id="stats-wind">--/-- m/s</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="stat-item">
+                                <span class="stat-item-label">Total Rainfall</span>
+                                <span class="stat-item-value" id="stats-rain">-- mm</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-item-label">Max UV Index</span>
+                                <span class="stat-item-value" id="stats-uv">--</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-item-label">Avg Light Level</span>
+                                <span class="stat-item-value" id="stats-light">-- lux</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts -->
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="chart-container">
+                            <h5><i class="bi bi-thermometer-half"></i> Temperature <span id="temp-chart-range" style="font-weight: 400; font-size: 0.85em; color: var(--text-secondary);"></span></h5>
+                            <canvas id="tempChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="chart-container">
+                            <h5><i class="bi bi-droplet"></i> Humidity <span id="humidity-chart-range" style="font-weight: 400; font-size: 0.85em; color: var(--text-secondary);"></span></h5>
+                            <canvas id="humidityChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="chart-container">
+                            <h5><i class="bi bi-wind"></i> Wind Speed & Gust <span id="wind-chart-range" style="font-weight: 400; font-size: 0.85em; color: var(--text-secondary);"></span></h5>
+                            <canvas id="windChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="chart-container">
+                            <h5><i class="bi bi-cloud-rain"></i> Rainfall <span id="rain-chart-range" style="font-weight: 400; font-size: 0.85em; color: var(--text-secondary);"></span></h5>
+                            <canvas id="rainChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="chart-container">
+                            <h5><i class="bi bi-sun"></i> UV Index <span id="uv-chart-range" style="font-weight: 400; font-size: 0.85em; color: var(--text-secondary);"></span></h5>
+                            <canvas id="uvChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="chart-container">
+                            <h5><i class="bi bi-lightbulb"></i> Light <span id="lux-chart-range" style="font-weight: 400; font-size: 0.85em; color: var(--text-secondary);"></span></h5>
+                            <canvas id="luxChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="last-updated">
+                    Last updated: <span id="last-updated">--</span>
+                </div>
+                </div>
+                </div>
+                
+                <!-- Historical Analytics Tab -->
+                <div class="tab-pane fade" id="history" role="tabpanel">
+                    <div id="history-loading" class="loading">
+                        <div class="loading-spinner"></div>
+                        <p>Loading historical data...</p>
+                    </div>
+                    
+                    <div id="history-dashboard" style="display: none;">
+                        <!-- Controls -->
+                        <div class="chart-container mb-4">
+                            <div class="row align-items-end">
+                                <div class="col-md-3">
+                                    <label class="form-label" style="color: var(--text-secondary);">Year</label>
+                                    <select class="form-select" id="history-year">
+                                        <option value="">All Years</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label" style="color: var(--text-secondary);">Month</label>
+                                    <select class="form-select" id="history-month">
+                                        <option value="">All Months</option>
+                                        <option value="0">January</option>
+                                        <option value="1">February</option>
+                                        <option value="2">March</option>
+                                        <option value="3">April</option>
+                                        <option value="4">May</option>
+                                        <option value="5">June</option>
+                                        <option value="6">July</option>
+                                        <option value="7">August</option>
+                                        <option value="8">September</option>
+                                        <option value="9">October</option>
+                                        <option value="10">November</option>
+                                        <option value="11">December</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label" style="color: var(--text-secondary);">View</label>
+                                    <div class="btn-group w-100" role="group">
+                                        <button type="button" class="btn btn-outline-primary active" id="view-charts">Charts</button>
+                                        <button type="button" class="btn btn-outline-primary" id="view-table">Table</button>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label" style="color: var(--text-secondary);">Filter Status</label>
+                                    <div class="alert alert-info mb-0 py-2" id="filter-status" style="font-size: 0.9rem;">
+                                        <i class="bi bi-info-circle"></i> <span id="filter-status-text">No filters - showing recent data</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Statistics Summary -->
+                        <div class="row mb-4" id="stats-summary">
+                            <div class="col-md-3">
+                                <div class="stats-summary-card">
+                                    <h5><i class="bi bi-thermometer-half"></i> Temperature</h5>
+                                    <div class="stat-item">
+                                        <span class="stat-item-label">Average</span>
+                                        <span class="stat-item-value" id="stat-avg-temp">--°C</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-item-label">High</span>
+                                        <span class="stat-item-value" id="stat-high-temp">--°C</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-item-label">Low</span>
+                                        <span class="stat-item-value" id="stat-low-temp">--°C</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="stats-summary-card">
+                                    <h5><i class="bi bi-droplet"></i> Rainfall</h5>
+                                    <div class="stat-item">
+                                        <span class="stat-item-label">Total</span>
+                                        <span class="stat-item-value" id="stat-total-rain">-- mm</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-item-label">Max Daily</span>
+                                        <span class="stat-item-value" id="stat-max-rain">-- mm</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-item-label">Rainy Days</span>
+                                        <span class="stat-item-value" id="stat-rainy-days">--</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="stats-summary-card">
+                                    <h5><i class="bi bi-wind"></i> Wind</h5>
+                                    <div class="stat-item">
+                                        <span class="stat-item-label">Average</span>
+                                        <span class="stat-item-value" id="stat-avg-wind">-- m/s</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-item-label">Max Gust</span>
+                                        <span class="stat-item-value" id="stat-max-gust">-- m/s</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-item-label">Windy Days</span>
+                                        <span class="stat-item-value" id="stat-windy-days">--</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="stats-summary-card">
+                                    <h5><i class="bi bi-moisture"></i> Humidity</h5>
+                                    <div class="stat-item">
+                                        <span class="stat-item-label">Average</span>
+                                        <span class="stat-item-value" id="stat-avg-humidity">--%</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-item-label">High</span>
+                                        <span class="stat-item-value" id="stat-high-humidity">--%</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-item-label">Low</span>
+                                        <span class="stat-item-value" id="stat-low-humidity">--%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Charts Grid -->
+                        <div id="charts-grid">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="chart-container">
+                                        <h5><i class="bi bi-thermometer-half"></i> Temperature</h5>
+                                        <canvas id="history-temp-chart"></canvas>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="chart-container">
+                                        <h5><i class="bi bi-droplet"></i> Rainfall</h5>
+                                        <canvas id="history-rain-chart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="chart-container">
+                                        <h5><i class="bi bi-wind"></i> Wind Speed</h5>
+                                        <canvas id="history-wind-chart"></canvas>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="chart-container">
+                                        <h5><i class="bi bi-moisture"></i> Humidity</h5>
+                                        <canvas id="history-humidity-chart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="chart-container">
+                                        <h5><i class="bi bi-sun"></i> UV Index</h5>
+                                        <canvas id="history-uv-chart"></canvas>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="chart-container">
+                                        <h5><i class="bi bi-lightbulb"></i> Light Level</h5>
+                                        <canvas id="history-lux-chart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Data Table -->
+                        <div id="data-table-container" style="display: none;">
+                            <div class="chart-container">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h5><i class="bi bi-table"></i> Detailed Data</h5>
+                                    <button class="btn btn-success" id="export-csv">
+                                        <i class="bi bi-download"></i> Export CSV
+                                    </button>
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="table table-dark table-hover" id="history-data-table">
+                                        <thead>
+                                            <tr>
+                                                <th class="sortable" data-column="date">Date <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                                <th class="sortable" data-column="temperature_C">Temp (°C) <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                                <th class="sortable" data-column="temperature_high_c">High (°C) <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                                <th class="sortable" data-column="temperature_low_c">Low (°C) <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                                <th class="sortable" data-column="humidity">Humidity (%) <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                                <th class="sortable" data-column="rain_mm">Rain (mm) <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                                <th class="sortable" data-column="wind_speed_m_s">Wind (m/s) <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                                <th class="sortable" data-column="wind_gust_m_s">Gust (m/s) <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                                <th class="sortable" data-column="uv">UV <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                                <th class="sortable" data-column="light_lux">Light (lux) <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="history-table-body">
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="last-updated">
+                            Last updated: <span id="history-last-updated">--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API endpoints
+        const API_BASE = '/api/weather';
+        
+        // Chart instances
+        let tempChart, humidityChart, windChart, rainChart, uvChart, luxChart;
+        
+        // Current time range
+        let currentTimeRange = '24h';
+        
+        // Table sorting state
+        let sortColumn = null;
+        let sortDirection = 'asc';
+        
+        // Initialize dashboard
+        async function initDashboard() {
+            try {
+                // Setup event listeners first
+                setupEventListeners();
+                
+                await loadCurrentWeather();
+                
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'block';
+                
+                // Auto-refresh every 30 seconds
+                setInterval(refreshDashboard, 30000);
+            } catch (error) {
+                console.error('Error initializing dashboard:', error);
+                document.getElementById('loading').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle"></i> Failed to load weather data
+                    </div>
+                `;
+            }
+        }
+        
+        // Register year marker plugin globally (only once)
+        Chart.register({
+            id: 'yearMarker',
+            afterDraw: (chart) => {
+                const ctx = chart.ctx;
+                const xAxis = chart.scales.x;
+                const yAxis = chart.scales.y;
+                
+                yearBoundaries.forEach(boundary => {
+                    const x = xAxis.getPixelForValue(boundary.index);
+                    
+                    // Draw vertical line
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.moveTo(x, yAxis.top);
+                    ctx.lineTo(x, yAxis.bottom);
+                    ctx.strokeStyle = '#6366f1';
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([5, 5]);
+                    ctx.stroke();
+                    
+                    // Draw year label on top
+                    ctx.fillStyle = '#6366f1';
+                    ctx.font = 'bold 12px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(boundary.year.toString(), x, yAxis.top + 10);
+                    ctx.restore();
+                });
+            }
+        });
+        
+        // Setup event listeners
+        function setupEventListeners() {
+            // Time range selector
+            document.getElementById('time-range').addEventListener('change', function() {
+                currentTimeRange = this.value;
+                const customContainer = document.getElementById('custom-range-container');
+                
+                if (this.value === 'custom') {
+                    customContainer.style.display = 'block';
+                } else {
+                    customContainer.style.display = 'none';
+                    loadHistoricalData();
+                }
+            });
+            
+            // Custom range inputs
+            document.getElementById('custom-start').addEventListener('change', loadHistoricalData);
+            document.getElementById('custom-end').addEventListener('change', loadHistoricalData);
+            
+            // Chart type selector
+            // Event listener for chart type changes (if element exists)
+            const chartTypeElement = document.getElementById('chart-type');
+            if (chartTypeElement) {
+                chartTypeElement.addEventListener('change', function() {
+                    updateChartTypes(this.value);
+                });
+            }
+        }
+        
+        // Initialize year dropdown with available years from database
+        async function initializeYearDropdown() {
+            const yearSelect = document.getElementById('history-year');
+            if (!yearSelect) return;
+            
+            yearSelect.innerHTML = '<option value="">All Years</option>';
+            
+            try {
+                // Fetch available years from API
+                const response = await fetch(`${API_BASE}/years`);
+                if (!response.ok) {
+                    throw new Error('Failed to fetch available years');
+                }
+                
+                const years = await response.json();
+                
+                if (Array.isArray(years) && years.length > 0) {
+                    years.forEach(year => {
+                        const option = document.createElement('option');
+                        option.value = year;
+                        option.textContent = year;
+                        yearSelect.appendChild(option);
+                    });
+                } else {
+                    // Fallback: show current year and 5 years back
+                    const currentYear = new Date().getFullYear();
+                    for (let i = 0; i < 5; i++) {
+                        const year = currentYear - i;
+                        const option = document.createElement('option');
+                        option.value = year;
+                        option.textContent = year;
+                        yearSelect.appendChild(option);
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching available years:', error);
+                // Fallback: show current year and 5 years back
+                const currentYear = new Date().getFullYear();
+                for (let i = 0; i < 5; i++) {
+                    const year = currentYear - i;
+                    const option = document.createElement('option');
+                    option.value = year;
+                    option.textContent = year;
+                    yearSelect.appendChild(option);
+                }
+            }
+        }
+        
+        // Get time range parameters
+        function getTimeRangeParams() {
+            const now = new Date();
+            let startTime, endTime;
+            
+            if (currentTimeRange === 'custom') {
+                const customStart = document.getElementById('custom-start').value;
+                const customEnd = document.getElementById('custom-end').value;
+                
+                if (customStart && customEnd) {
+                    startTime = new Date(customStart);
+                    endTime = new Date(customEnd);
+                } else {
+                    // Default to 24 hours if not set
+                    startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+                    endTime = now;
+                }
+            } else {
+                switch (currentTimeRange) {
+                    case '1h':
+                        startTime = new Date(now.getTime() - 1 * 60 * 60 * 1000);
+                        break;
+                    case '6h':
+                        startTime = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+                        break;
+                    case '24h':
+                        startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+                        break;
+                    case '7d':
+                        startTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                        break;
+                    case '30d':
+                        startTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                        break;
+                    case '1m':
+                        startTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                        break;
+                    case '3m':
+                        startTime = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+                        break;
+                    case '6m':
+                        startTime = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
+                        break;
+                    case '1y':
+                        startTime = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+                        break;
+                    default:
+                        startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+                }
+                endTime = now;
+            }
+            
+            return {
+                start: startTime.toISOString(),
+                end: endTime.toISOString(),
+                startObj: startTime,
+                endObj: endTime
+            };
+        }
+        
+        // Get time range label
+        function getTimeRangeLabel() {
+            const timeParams = getTimeRangeParams();
+            const start = timeParams.startObj;
+            const end = timeParams.endObj;
+            
+            const formatDate = (date) => {
+                const now = new Date();
+                const isToday = date.toDateString() === now.toDateString();
+                const isYesterday = date.toDateString() === new Date(now.getTime() - 24 * 60 * 60 * 1000).toDateString();
+                
+                if (isToday) {
+                    return `Today, ${formatTime(date.toISOString())}`;
+                } else if (isYesterday) {
+                    return `Yesterday, ${formatTime(date.toISOString())}`;
+                } else {
+                    return `${formatDateOnly(date.toISOString())}`;
+                }
+            };
+            
+            const formatDateOnly = (isoString) => {
+                const date = new Date(isoString);
+                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            };
+            
+            const timeDiff = end - start;
+            const hoursDiff = timeDiff / (1000 * 60 * 60);
+            const daysDiff = hoursDiff / 24;
+            
+            if (hoursDiff <= 24) {
+                return `${formatDate(start)} - ${formatTime(end.toISOString())}`;
+            } else if (daysDiff <= 7) {
+                return `${formatDateOnly(start.toISOString())} - ${formatDateOnly(end.toISOString())}`;
+            } else {
+                return `${formatDateOnly(start.toISOString())} to ${formatDateOnly(end.toISOString())}`;
+            }
+        }
+        
+        // Update time range labels
+        function updateTimeRangeLabels() {
+            const label = getTimeRangeLabel();
+            document.getElementById('stats-time-range').textContent = `(${label})`;
+            
+            const chartRanges = ['temp', 'humidity', 'wind', 'rain', 'uv', 'lux'];
+            chartRanges.forEach(chart => {
+                const element = document.getElementById(`${chart}-chart-range`);
+                if (element) {
+                    element.textContent = `(${label})`;
+                }
+            });
+        }
+        
+        // Update chart types
+        function updateChartTypes(chartType) {
+            
+            const charts = [tempChart, humidityChart, windChart, rainChart, uvChart, luxChart];
+            charts.forEach(chart => {
+                if (chart) {
+                    chart.config.type = chartType === 'area' ? 'line' : chartType;
+                    
+                    // Update fill based on chart type
+                    if (chartType === 'area') {
+                        chart.data.datasets.forEach(dataset => {
+                            dataset.fill = true;
+                        });
+                    } else if (chartType === 'line') {
+                        chart.data.datasets.forEach((dataset, index) => {
+                            dataset.fill = index === 0; // Only fill first dataset
+                        });
+                    } else if (chartType === 'bar') {
+                        chart.data.datasets.forEach(dataset => {
+                            dataset.fill = false;
+                        });
+                    }
+                    
+                    chart.update();
+                }
+            });
+        }
+        
+        // Load current weather
+        async function loadCurrentWeather() {
+            // Fetch current weather for the display
+            const currentResponse = await fetch(`${API_BASE}/current`);
+            if (!currentResponse.ok) throw new Error('Failed to fetch current weather');
+            
+            const currentData = await currentResponse.json();
+            updateCurrentWeather(currentData);
+            
+            // Fetch historical data based on current time range
+            await loadHistoricalData();
+        }
+        
+        // Update current weather display
+        function updateCurrentWeather(data) {
+            // Use local system time instead of data.time from API
+            const now = new Date();
+            document.getElementById('current-time').textContent = formatTime(now.toISOString());
+                document.getElementById('current-date').textContent = formatDate(now.toISOString());
+            document.getElementById('current-temp').textContent = `${data.temperature_C.toFixed(1)}°C`;
+            document.getElementById('current-model').textContent = data.model;
+            
+            // Location coordinates
+            if (data.latitude !== undefined && data.longitude !== undefined) {
+                const lat = data.latitude.toFixed(4);
+                const lon = data.longitude.toFixed(4);
+                document.getElementById('location-coords').textContent = `Lat: ${lat}°, Lon: ${lon}°`;
+            }
+            
+            // Battery status
+            const batteryStatus = document.getElementById('battery-status');
+            const batteryClass = data.battery === 'ok' ? 'battery-ok' : 'battery-low';
+            const batteryIcon = data.battery === 'ok' ? 'bi-battery-full' : 'bi-battery-low';
+            batteryStatus.innerHTML = `<i class="bi ${batteryIcon} ${batteryClass}"></i> <span class="${batteryClass}">${data.battery.toUpperCase()}</span>`;
+            
+            // Astronomical info
+            if (data.astronomical) {
+                const sunrise = new Date(data.astronomical.sunrise);
+                const sunset = new Date(data.astronomical.sunset);
+                
+                // Use local system timezone instead of longitude-based calculation
+                document.getElementById('sunrise-time').textContent = formatTime(sunrise.toISOString());
+                document.getElementById('sunset-time').textContent = formatTime(sunset.toISOString());
+                
+                // Moon phase
+                if (data.astronomical.moon_phase && data.astronomical.moon_icon) {
+                    document.getElementById('moon-phase').textContent = data.astronomical.moon_phase;
+                    const moonIconElement = document.getElementById('moon-icon');
+                    moonIconElement.className = `bi ${data.astronomical.moon_icon}`;
+                }
+                
+                // Moon illumination and trend
+                if (data.astronomical.moon_illumination !== undefined) {
+                    document.getElementById('moon-illumination').textContent = `${data.astronomical.moon_illumination.toFixed(0)}%`;
+                }
+                if (data.astronomical.moon_trend) {
+                    document.getElementById('moon-trend').textContent = data.astronomical.moon_trend;
+                }
+            }
+            
+            // Weather icon with astronomical data
+            try {
+                const weatherIcon = getWeatherIcon(data);
+                const weatherIconElement = document.getElementById('weather-icon');
+                if (weatherIconElement) {
+                    weatherIconElement.innerHTML = `<i class="bi ${weatherIcon}" style="display: inline-block; font-size: 5rem;"></i>`;
+                } else {
+                    console.error('Weather icon element not found');
+                }
+            } catch (e) {
+                console.error('Error setting weather icon:', e);
+            }
+            
+            // Stats
+            document.getElementById('current-humidity').textContent = `${data.humidity}%`;
+            document.getElementById('current-uv').textContent = data.uv.toFixed(1);
+            document.getElementById('current-lux').textContent = data.light_lux.toLocaleString();
+            document.getElementById('current-rain').textContent = `${data.daily_rain_mm.toFixed(2)} mm`;
+            document.getElementById('current-wind-speed').textContent = `${data.wind_speed_m_s.toFixed(1)} m/s`;
+            document.getElementById('current-wind-gust').textContent = `${data.wind_gust_m_s.toFixed(1)} m/s`;
+            document.getElementById('current-wind-dir').textContent = `${data.wind_dir_deg}°`;
+            
+            document.getElementById('last-updated').textContent = new Date().toLocaleString();
+        }
+        
+        // Load historical data
+        async function loadHistoricalData() {
+            
+            const timeParams = getTimeRangeParams();
+            
+            // Determine which endpoint to use based on time range
+            const timeDiffHours = (timeParams.endObj - timeParams.startObj) / (1000 * 60 * 60);
+            const useRecentEndpoint = timeDiffHours <= 24;
+            const endpoint = useRecentEndpoint ? '/recent' : '/history';
+            
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}?start=${timeParams.start}&end=${timeParams.end}&limit=10000`);
+                
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        throw new Error('No data available for the selected time range');
+                    } else {
+                        throw new Error(`Failed to fetch historical data: ${response.status}`);
+                    }
+                }
+                
+                const data = await response.json();
+                
+                if (!Array.isArray(data)) {
+                    throw new Error('Invalid data format received from server');
+                }
+                
+                if (data.length === 0) {
+                    console.warn('No data available for the selected time range');
+                    updateCharts([]);
+                    updateStatistics([]);
+                    updateTimeRangeLabels();
+                    return;
+                }
+                
+                updateCharts(data);
+                updateStatistics(data);
+                updateTimeRangeLabels();
+                
+            } catch (error) {
+                console.error('Error loading historical data:', error);
+                // Show error in the UI
+                const statsContainer = document.getElementById('stats-temp');
+                if (statsContainer) {
+                    statsContainer.textContent = 'Error loading data';
+                }
+            }
+        }
+        
+        // Update statistics
+        function updateStatistics(data) {
+            if (data.length === 0) {
+                document.getElementById('stats-temp').textContent = '--/--/--°C';
+                document.getElementById('stats-humidity').textContent = '--/--/--%';
+                document.getElementById('stats-wind').textContent = '--/-- m/s';
+                document.getElementById('stats-rain').textContent = '-- mm';
+                document.getElementById('stats-uv').textContent = '--';
+                document.getElementById('stats-light').textContent = '-- lux';
+                return;
+            }
+            
+            // Temperature stats
+            const temps = data.map(d => d.temperature_C);
+            const tempMin = Math.min(...temps);
+            const tempMax = Math.max(...temps);
+            const tempAvg = temps.reduce((a, b) => a + b, 0) / temps.length;
+            document.getElementById('stats-temp').textContent = `${tempMin.toFixed(1)}/${tempMax.toFixed(1)}/${tempAvg.toFixed(1)}°C`;
+            
+            // Humidity stats
+            const humidities = data.map(d => d.humidity);
+            const humidityMin = Math.min(...humidities);
+            const humidityMax = Math.max(...humidities);
+            const humidityAvg = humidities.reduce((a, b) => a + b, 0) / humidities.length;
+            document.getElementById('stats-humidity').textContent = `${humidityMin}/${humidityMax}/${Math.round(humidityAvg)}%`;
+            
+            // Wind stats
+            const windSpeeds = data.map(d => d.wind_speed_m_s);
+            const windMax = Math.max(...windSpeeds);
+            const windAvg = windSpeeds.reduce((a, b) => a + b, 0) / windSpeeds.length;
+            document.getElementById('stats-wind').textContent = `${windMax.toFixed(1)}/${windAvg.toFixed(1)} m/s`;
+            
+            // Total rainfall
+            const totalRain = data.reduce((sum, d) => sum + (d.rain_mm || 0), 0);
+            document.getElementById('stats-rain').textContent = `${totalRain.toFixed(2)} mm`;
+            
+            // Max UV
+            const uvs = data.map(d => d.uv);
+            const maxUV = Math.max(...uvs);
+            document.getElementById('stats-uv').textContent = maxUV.toFixed(1);
+            
+            // Average light
+            const lights = data.map(d => d.light_lux);
+            const avgLight = lights.reduce((a, b) => a + b, 0) / lights.length;
+            document.getElementById('stats-light').textContent = `${Math.round(avgLight)} lux`;
+        }
+        
+        // Update all charts
+        function updateCharts(data) {
+            
+            // Sample data to improve performance - limit to max 100 points
+            const maxPoints = 100;
+            let sampledData = data;
+            if (data.length > maxPoints) {
+                const step = Math.ceil(data.length / maxPoints);
+                sampledData = data.filter((_, index) => index % step === 0);
+            }
+            
+            // Data is in ASC order (oldest first), so latest appears on the right
+            
+            // Determine time format based on data range
+            const timeParams = getTimeRangeParams();
+            const timeDiff = timeParams.endObj - timeParams.startObj;
+            const hoursDiff = timeDiff / (1000 * 60 * 60);
+            const daysDiff = hoursDiff / 24;
+            
+            // Check if we have detailed min/max data (from daily rollups)
+            const hasMinMaxData = sampledData.some(d => d.temperature_high_c !== undefined);
+            
+            // Choose appropriate time format for labels
+            let labelFormat;
+            if (hoursDiff <= 24) {
+                // Show time only for short ranges
+                labelFormat = (timestamp) => formatTime(timestamp);
+            } else if (daysDiff <= 7) {
+                // Show date and time for week range
+                labelFormat = (timestamp) => {
+                    const date = new Date(timestamp);
+                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + 
+                           date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                };
+            } else if (daysDiff <= 30) {
+                // Show date only for month range
+                labelFormat = (timestamp) => {
+                    const date = new Date(timestamp);
+                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                };
+            } else {
+                // Show month and year for longer ranges
+                labelFormat = (timestamp) => {
+                    const date = new Date(timestamp);
+                    return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+                };
+            }
+            
+            const labels = sampledData.map(d => labelFormat(d.time));
+            
+            // Get current chart type (default to 'line' if element doesn't exist)
+            const chartTypeElement = document.getElementById('chart-type');
+            const chartType = chartTypeElement ? chartTypeElement.value : 'line';
+            const actualChartType = chartType === 'area' ? 'line' : chartType;
+            
+            // Temperature chart - show min/max range if available
+            if (hasMinMaxData) {
+                tempChart = updateRangeChart('tempChart', tempChart, labels,
+                    sampledData.map(d => d.temperature_high_c),
+                    sampledData.map(d => d.temperature_low_c),
+                    'Temperature (°C)',
+                    '#8aadf4',
+                    actualChartType,
+                    chartType === 'area',
+                    daysDiff
+                );
+            } else {
+                tempChart = updateChart('tempChart', tempChart, labels, 
+                    sampledData.map(d => d.temperature_C),
+                    'Temperature (°C)',
+                    '#8aadf4',
+                    actualChartType,
+                    chartType === 'area',
+                    daysDiff
+                );
+            }
+            
+            // Humidity chart - show min/max range if available
+            if (hasMinMaxData) {
+                humidityChart = updateRangeChart('humidityChart', humidityChart, labels,
+                    sampledData.map(d => d.humidity_high),
+                    sampledData.map(d => d.humidity_low),
+                    'Humidity (%)',
+                    '#7dc4e4',
+                    actualChartType,
+                    chartType === 'area',
+                    daysDiff
+                );
+            } else {
+                humidityChart = updateChart('humidityChart', humidityChart, labels,
+                    sampledData.map(d => d.humidity),
+                    'Humidity (%)',
+                    '#7dc4e4',
+                    actualChartType,
+                    chartType === 'area',
+                    daysDiff
+                );
+            }
+            
+            // Wind chart
+            windChart = updateMultiLineChart('windChart', windChart, labels,
+                [
+                    { label: 'Wind Speed', data: sampledData.map(d => d.wind_speed_m_s), color: '#a6da95' },
+                    { label: 'Wind Gust', data: sampledData.map(d => d.wind_gust_m_s), color: '#f5a97f' }
+                ],
+                actualChartType,
+                daysDiff
+            );
+            
+            // Rain chart
+            rainChart = updateChart('rainChart', rainChart, labels,
+                sampledData.map(d => d.rain_mm),
+                'Rainfall (mm)',
+                '#c6a0f6',
+                actualChartType,
+                chartType === 'area',
+                daysDiff
+            );
+            
+            // UV Index chart
+            uvChart = updateChart('uvChart', uvChart, labels,
+                sampledData.map(d => d.uv),
+                'UV Index',
+                '#eed49f',
+                actualChartType,
+                chartType === 'area',
+                daysDiff
+            );
+            
+            // Light chart
+            luxChart = updateChart('luxChart', luxChart, labels,
+                sampledData.map(d => d.light_lux),
+                'Light (lux)',
+                '#fbbf24',
+                actualChartType,
+                chartType === 'area',
+                daysDiff
+            );
+        }
+
+// Update single line/bar chart
+function updateChart(canvasId, chartInstance, labels, data, label, color, chartType = 'line', fill = false, daysDiff = 0) {
+    
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) {
+        return null;
+    }
+    
+    
+    const ctx = canvas.getContext('2d');
+    
+    // Get any existing chart on this canvas and destroy it
+    const existingChart = Chart.getChart(canvas);
+    if (existingChart) {
+        existingChart.destroy();
+    }
+    
+    // Destroy the passed chart instance if it exists
+    if (chartInstance) {
+        chartInstance.destroy();
+    }
+    
+    // Determine appropriate tick interval based on data range
+    let maxTicksLimit;
+    if (daysDiff <= 1) {
+        maxTicksLimit = 12; // Every 2 hours for 1 day
+    } else if (daysDiff <= 7) {
+        maxTicksLimit = 7; // Daily for 1 week
+    } else if (daysDiff <= 30) {
+        maxTicksLimit = 10; // Every 3 days for 1 month
+    } else {
+        maxTicksLimit = 12; // Monthly for longer ranges
+    }
+    
+    const chart = new Chart(ctx, {
+        type: chartType,
+        data: {
+            labels: labels,
+            datasets: [{
+                label: label,
+                data: data,
+                borderColor: color,
+                backgroundColor: fill ? color + '33' : 'transparent',
+                fill: fill,
+                tension: 0.1,
+                pointRadius: 0, // Disable points for better performance
+                pointHoverRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: {
+                duration: 0 // Instant animation for better performance
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    enabled: true,
+                    backgroundColor: '#1e2030',
+                    titleColor: '#cad3f5',
+                    bodyColor: '#a5adcb',
+                    borderColor: '#363a4f',
+                    borderWidth: 1,
+                    padding: 12,
+                    displayColors: false,
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.dataset.label}: ${context.parsed.y.toFixed(2)}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        color: '#363a4f',
+                        drawBorder: false
+                    },
+                    ticks: {
+                        color: '#a5adcb',
+                        maxTicksLimit: maxTicksLimit
+                    }
+                },
+                y: {
+                    grid: {
+                        color: '#363a4f',
+                        drawBorder: false
+                    },
+                    ticks: {
+                        color: '#a5adcb'
+                    }
+                }
+            }
+        }
+    });
+    
+    return chart;
+}
+
+// Update multiline chart
+function updateMultiLineChart(canvasId, chartInstance, labels, datasets, chartType = 'line', daysDiff = 0) {
+    
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) {
+        return null;
+    }
+    
+    const ctx = canvas.getContext('2d');
+    
+    // Get any existing chart on this canvas and destroy it
+    const existingChart = Chart.getChart(canvas);
+    if (existingChart) {
+        existingChart.destroy();
+    }
+    
+    // Destroy the passed chart instance if it exists
+    if (chartInstance) {
+        chartInstance.destroy();
+    }
+    
+    // Determine appropriate tick interval based on data range
+    let maxTicksLimit;
+    if (daysDiff <= 1) {
+        maxTicksLimit = 12; // Every 2 hours for 1 day
+    } else if (daysDiff <= 7) {
+        maxTicksLimit = 7; // Daily for 1 week
+    } else if (daysDiff <= 30) {
+        maxTicksLimit = 10; // Every 3 days for 1 month
+    } else {
+        maxTicksLimit = 12; // Monthly for longer ranges
+    }
+    
+    const chart = new Chart(ctx, {
+        type: chartType,
+        data: {
+            labels: labels,
+            datasets: datasets.map(ds => ({
+                label: ds.label,
+                data: [...ds.data],
+                borderColor: ds.color,
+                backgroundColor: ds.color,
+                borderWidth: 2.5,
+                tension: 0.4,
+                pointRadius: 0, // Disable points for better performance
+                pointHoverRadius: 4,
+                pointBackgroundColor: '#1e2030',
+                pointBorderColor: ds.color,
+                pointBorderWidth: 2,
+            }))
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: {
+                duration: 0 // Instant animation for better performance
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        color: '#a5adcb',
+                        usePointStyle: true,
+                        pointStyle: 'line'
+                    }
+                },
+                tooltip: {
+                    enabled: true,
+                    backgroundColor: '#1e2030',
+                    titleColor: '#cad3f5',
+                    bodyColor: '#a5adcb',
+                    borderColor: '#363a4f',
+                    borderWidth: 1,
+                    padding: 12,
+                    displayColors: true,
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.dataset.label}: ${context.parsed.y.toFixed(2)}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        color: '#363a4f',
+                        drawBorder: false
+                    },
+                    ticks: {
+                        color: '#a5adcb',
+                        maxTicksLimit: maxTicksLimit
+                    }
+                },
+                y: {
+                    grid: {
+                        color: '#363a4f',
+                        drawBorder: false
+                    },
+                    ticks: {
+                        color: '#a5adcb'
+                    }
+                }
+            }
+        }
+    });
+    
+    return chart;
+}
+
+// Update range chart (shows min/max range)
+function updateRangeChart(canvasId, chartInstance, labels, highData, lowData, label, color, chartType = 'line', fill = false, daysDiff = 0) {
+    const canvas = document.getElementById(canvasId);
+    const ctx = canvas.getContext('2d');
+    
+    // Get any existing chart on this canvas and destroy it
+    const existingChart = Chart.getChart(canvas);
+    if (existingChart) {
+        existingChart.destroy();
+    }
+    
+    // Destroy the passed chart instance if it exists
+    if (chartInstance) {
+        chartInstance.destroy();
+    }
+    
+    // Create a deep copy of the data to avoid reference issues
+    const highDataCopy = [...highData];
+    const lowDataCopy = [...lowData];
+    const labelsCopy = [...labels];
+    
+    // Determine appropriate tick interval based on data range
+    let maxTicksLimit;
+    if (daysDiff <= 1) {
+        maxTicksLimit = 12; // Every 2 hours for 1 day
+    } else if (daysDiff <= 7) {
+        maxTicksLimit = 7; // Daily for 1 week
+    } else if (daysDiff <= 30) {
+        maxTicksLimit = 10; // Every 3 days for 1 month
+    } else {
+        maxTicksLimit = 12; // Monthly for longer ranges
+    }
+    
+    const chart = new Chart(ctx, {
+        type: chartType,
+        data: {
+            labels: labelsCopy,
+            datasets: [
+                {
+                    label: 'High',
+                    data: highDataCopy,
+                    borderColor: color,
+                    backgroundColor: fill ? color + '40' : 'transparent',
+                    borderWidth: 2.5,
+                    fill: fill,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#1e2030',
+                    pointBorderColor: color,
+                    pointBorderWidth: 2,
+                },
+                {
+                    label: 'Low',
+                    data: lowDataCopy,
+                    borderColor: color,
+                    backgroundColor: fill ? color + '20' : 'transparent',
+                    borderWidth: 2.5,
+                    fill: fill,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#1e2030',
+                    pointBorderColor: color,
+                    pointBorderWidth: 2,
+                    borderDash: [5, 5], // Dashed line for low values
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: {
+                duration: 0 // Instant animation for better performance
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        color: '#a5adcb',
+                        usePointStyle: true,
+                        pointStyle: 'line'
+                    }
+                },
+                tooltip: {
+                    enabled: true,
+                    backgroundColor: '#1e2030',
+                    titleColor: '#cad3f5',
+                    bodyColor: '#a5adcb',
+                    borderColor: '#363a4f',
+                    borderWidth: 1,
+                    padding: 12,
+                    displayColors: false,
+                    callbacks: {
+                        label: function(context) {
+                            const high = highDataCopy[context.dataIndex];
+                            const low = lowDataCopy[context.dataIndex];
+                            return `${label}: High ${high.toFixed(2)}, Low ${low.toFixed(2)}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        color: '#363a4f',
+                        drawBorder: false
+                    },
+                    ticks: {
+                        color: '#a5adcb',
+                        maxRotation: 45,
+                        minRotation: 45,
+                        maxTicksLimit: maxTicksLimit
+                    }
+                },
+                y: {
+                    grid: {
+                        color: '#363a4f',
+                        drawBorder: false
+                    },
+                    ticks: {
+                        color: '#a5adcb'
+                    }
+                }
+            }
+        }
+    });
+    
+    return chart;
+}
+        
+        // Refresh dashboard
+        async function refreshDashboard() {
+            try {
+                await loadCurrentWeather();
+            } catch (error) {
+                console.error('Error refreshing dashboard:', error);
+            }
+        }
+        
+        // Format time
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: false 
+            });
+        }
+        
+        // Format date
+        function formatDate(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleDateString('en-US', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            });
+        }
+        
+        // Get weather icon based on conditions with seasonal adjustments
+        function getWeatherIcon(data) {
+            const temp = data.temperature_C;
+            const currentRain = data.current_rain_mm || 0; // Use current rain, not daily
+            const uv = data.uv;
+            const light = data.light_lux;
+            const hour = new Date(data.time).getHours();
+            const month = new Date(data.time).getMonth() + 1; // 1-12
+            
+            // Determine day/night using actual sunrise/sunset
+            let isNight = false;
+            if (data.astronomical && data.astronomical.sunrise && data.astronomical.sunset) {
+                // Use local system time for day/night detection
+                const now = new Date();
+                const sunrise = new Date(data.astronomical.sunrise);
+                const sunset = new Date(data.astronomical.sunset);
+                isNight = now < sunrise || now > sunset;
+            } else {
+                // Fallback: use time-based detection
+                isNight = hour >= 20 || hour < 6;
+            }
+            
+            
+            // Priority: Rain > Frost > Sunny/Cloudy
+            if (currentRain > 0) {
+                return 'bi-cloud-rain';
+            }
+            
+            // Seasonal temperature adjustments based on month and latitude
+            // Northern hemisphere: colder in winter (months 12, 1, 2), warmer in summer (6, 7, 8)
+            let isWinter = month === 12 || month === 1 || month === 2;
+            let isSummer = month === 6 || month === 7 || month === 8;
+            
+            // Temperature thresholds adjust by season
+            // Frost: below 0°C (always frost regardless of season)
+            if (temp < 0) {
+                return 'bi-snow';
+            }
+            
+            // Cold threshold: lower in winter, higher in summer
+            let coldThreshold = isWinter ? -5 : (isSummer ? 10 : 5);
+            if (temp < coldThreshold) {
+                if (isNight) {
+                    return 'bi-cloud-moon';
+                }
+                return 'bi-cloud';
+            }
+            
+            // Check for sunny conditions (high UV and light, not night)
+            // Light threshold adjusts by season (less light in winter)
+            let lightThreshold = isWinter ? 15000 : (isSummer ? 40000 : 25000);
+            if (uv > 5 && light > lightThreshold && !isNight) {
+                return 'bi-sun';
+            }
+            
+            // Check for cloudy conditions (lower light or UV)
+            if (light < lightThreshold || uv < 3) {
+                if (isNight) {
+                    return 'bi-cloud-moon';
+                }
+                return 'bi-cloud-sun';
+            }
+            
+            // Default: partly cloudy
+            if (isNight) {
+                return 'bi-moon';
+            }
+            return 'bi-cloud-sun';
+        }
+        
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', initDashboard);
+        
+        // History analytics functionality
+        let historyData = [];
+        let historyCharts = {};
+        let yearBoundaries = [];
+        
+        // Tab switching event listeners
+        document.getElementById('history-tab').addEventListener('shown.bs.tab', function() {
+            initializeYearDropdown();
+            updateFilterStatus();
+            
+            // Set up event listeners for year and month dropdowns (only once)
+            const yearSelect = document.getElementById('history-year');
+            const monthSelect = document.getElementById('history-month');
+            
+            if (!yearSelect.hasAttribute('data-listeners-added')) {
+                yearSelect.addEventListener('change', function() {
+                                updateFilterStatus();
+                                loadHistoryData();
+                            });                yearSelect.setAttribute('data-listeners-added', 'true');
+            }
+            
+            if (!monthSelect.hasAttribute('data-listeners-added')) {
+                monthSelect.addEventListener('change', function() {
+                    updateFilterStatus();
+                    loadHistoryData();
+                });
+                monthSelect.setAttribute('data-listeners-added', 'true');
+            }
+            
+            loadHistoryData();
+        });
+        
+        // View toggle buttons
+        document.getElementById('view-charts').addEventListener('click', function() {
+            document.getElementById('charts-grid').style.display = 'block';
+            document.getElementById('data-table-container').style.display = 'none';
+            this.classList.add('active');
+            document.getElementById('view-table').classList.remove('active');
+        });
+        
+        document.getElementById('view-table').addEventListener('click', function() {
+            document.getElementById('charts-grid').style.display = 'none';
+            document.getElementById('data-table-container').style.display = 'block';
+            this.classList.add('active');
+            document.getElementById('view-charts').classList.remove('active');
+        });
+        
+        // Export CSV button
+        document.getElementById('export-csv').addEventListener('click', exportToCSV);
+        
+        // Table sorting event listeners
+        document.querySelectorAll('.sortable').forEach(header => {
+            header.addEventListener('click', function() {
+                const column = this.getAttribute('data-column');
+                
+                // Toggle sort direction if clicking the same column
+                if (sortColumn === column) {
+                    sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    sortColumn = column;
+                    sortDirection = 'asc';
+                }
+                
+                // Update header styles
+                document.querySelectorAll('.sortable').forEach(h => {
+                    h.classList.remove('asc', 'desc');
+                });
+                this.classList.add(sortDirection);
+                
+                // Sort and update table
+                sortTable(column, sortDirection);
+            });
+        });
+        
+        // Update filter status display
+        function updateFilterStatus() {
+            const year = document.getElementById('history-year').value;
+            const month = document.getElementById('history-month').value;
+            const statusText = document.getElementById('filter-status-text');
+            
+            if (!year && !month) {
+                statusText.textContent = 'No filters - showing recent data';
+            } else if (year && month) {
+                const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                statusText.textContent = `Filtered: ${year}, ${monthNames[parseInt(month)]}`;
+            } else if (year) {
+                statusText.textContent = `Filtered: ${year}`;
+            } else if (month) {
+                const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                statusText.textContent = `Filtered: ${monthNames[parseInt(month)]}`;
+            }
+        }
+        
+        // Load history data
+        async function loadHistoryData() {
+            const year = document.getElementById('history-year').value;
+            const month = document.getElementById('history-month').value;
+            
+            // Calculate date range
+            let startDate, endDate;
+            const now = new Date();
+            
+            if (year) {
+                const selectedYear = parseInt(year);
+                if (month !== '') {
+                    const selectedMonth = parseInt(month);
+                    // Use UTC to avoid timezone issues
+                    startDate = new Date(Date.UTC(selectedYear, selectedMonth, 1));
+                    endDate = new Date(Date.UTC(selectedYear, selectedMonth + 1, 0));
+                } else {
+                    // Use UTC to avoid timezone issues
+                    startDate = new Date(Date.UTC(selectedYear, 0, 1));
+                    endDate = new Date(Date.UTC(selectedYear, 11, 31));
+                }
+            } else {
+                // All Years: query from 5 years ago to today
+                startDate = new Date(now.getFullYear() - 5, 0, 1);
+                endDate = now;
+            }
+            
+            // Cap end date at today to avoid querying for future dates
+            if (endDate > now) {
+                endDate = now;
+            }
+            
+            // Format dates for API
+            const startStr = startDate.toISOString();
+            const endStr = endDate.toISOString();
+            
+            try {
+                document.getElementById('history-loading').innerHTML = `
+                    <div class="loading-spinner"></div>
+                    <p>Loading data...</p>
+                `;
+                document.getElementById('history-loading').style.display = 'block';
+                document.getElementById('history-dashboard').style.display = 'none';
+                
+                // Historical Analytics always uses the history endpoint (aggregated data)
+                const response = await fetch(`${API_BASE}/history?start=${startStr}&end=${endStr}&limit=10000`);
+                
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        throw new Error('No data available for the selected period');
+                    } else {
+                        throw new Error(`Failed to fetch history data: ${response.status}`);
+                    }
+                }
+                
+                const data = await response.json();
+                
+                if (!Array.isArray(data)) {
+                    throw new Error('Invalid data format received from server');
+                }
+                
+                if (data.length === 0) {
+                    document.getElementById('history-loading').innerHTML = `
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i>
+                            No data available for the selected period. Please try a different date range.
+                        </div>
+                    `;
+                    document.getElementById('history-dashboard').style.display = 'none';
+                    return;
+                }
+                
+                historyData = data;
+                
+                // Sort data by date in ascending order (oldest first)
+                historyData.sort((a, b) => new Date(a.time) - new Date(b.time));
+                
+                // Populate year dropdown if empty
+                if (document.getElementById('history-year').options.length === 1) {
+                    populateYearDropdown();
+                }
+                
+                // Update filter status
+                updateFilterStatus();
+                
+                // Update UI
+                updateHistoryUI();
+                
+                document.getElementById('history-loading').style.display = 'none';
+                document.getElementById('history-dashboard').style.display = 'block';
+                document.getElementById('history-last-updated').textContent = new Date().toLocaleString();
+                
+            } catch (error) {
+                console.error('Error loading history data:', error);
+                document.getElementById('history-loading').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-circle"></i>
+                        Error loading data: ${error.message}
+                    </div>
+                `;
+                document.getElementById('history-dashboard').style.display = 'none';
+            }
+        }
+        
+        // Populate year dropdown
+        function populateYearDropdown() {
+            const years = new Set();
+            historyData.forEach(reading => {
+                const date = new Date(reading.time);
+                years.add(date.getFullYear());
+            });
+            
+            const yearSelect = document.getElementById('history-year');
+            const currentValue = yearSelect.value;
+            yearSelect.innerHTML = '<option value="">All Years</option>';
+            
+            // Use years from the current data
+            Array.from(years).sort((a, b) => b - a).forEach(year => {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = year;
+                yearSelect.appendChild(option);
+            });
+            
+            // Restore selected value if it still exists
+            if (currentValue && Array.from(years).includes(parseInt(currentValue))) {
+                yearSelect.value = currentValue;
+            }
+        }
+        
+        // Update history UI
+        function updateHistoryUI() {
+            if (historyData.length === 0) {
+                document.getElementById('charts-grid').innerHTML = '<p class="text-center">No data available for selected period</p>';
+                return;
+            }
+            
+            // Update statistics
+            updateHistoryStatistics();
+            
+            // Update charts
+            updateHistoryCharts();
+            
+            // Update table
+            updateTable();
+        }
+        
+        // Update statistics
+        function updateHistoryStatistics() {
+            if (historyData.length === 0) return;
+            
+            const temps = historyData.map(d => d.temperature_C);
+            const tempsHigh = historyData.map(d => d.temperature_high_c || d.temperature_C);
+            const tempsLow = historyData.map(d => d.temperature_low_c || d.temperature_C);
+            const humidities = historyData.map(d => d.humidity);
+            const humiditiesHigh = historyData.map(d => d.humidity_high || d.humidity);
+            const humiditiesLow = historyData.map(d => d.humidity_low || d.humidity);
+            const rains = historyData.map(d => d.rain_mm);
+            const winds = historyData.map(d => d.wind_speed_m_s);
+            const gusts = historyData.map(d => d.wind_gust_m_s);
+            
+            // Temperature
+            const avgTemp = temps.reduce((a, b) => a + b, 0) / temps.length;
+            const highTemp = Math.max(...tempsHigh);
+            const lowTemp = Math.min(...tempsLow);
+            
+            document.getElementById('stat-avg-temp').textContent = `${avgTemp.toFixed(1)}°C`;
+            document.getElementById('stat-high-temp').textContent = `${highTemp.toFixed(1)}°C`;
+            document.getElementById('stat-low-temp').textContent = `${lowTemp.toFixed(1)}°C`;
+            
+            // Rainfall
+            const totalRain = rains.reduce((a, b) => a + b, 0);
+            const maxRain = Math.max(...rains);
+            const rainyDays = rains.filter(r => r > 0).length;
+            
+            document.getElementById('stat-total-rain').textContent = `${totalRain.toFixed(1)} mm`;
+            document.getElementById('stat-max-rain').textContent = `${maxRain.toFixed(1)} mm`;
+            document.getElementById('stat-rainy-days').textContent = rainyDays;
+            
+            // Wind
+            const avgWind = winds.reduce((a, b) => a + b, 0) / winds.length;
+            const maxGust = Math.max(...gusts);
+            const windyDays = gusts.filter(g => g > 10).length;
+            
+            document.getElementById('stat-avg-wind').textContent = `${avgWind.toFixed(1)} m/s`;
+            document.getElementById('stat-max-gust').textContent = `${maxGust.toFixed(1)} m/s`;
+            document.getElementById('stat-windy-days').textContent = windyDays;
+            
+            // Humidity
+            const avgHumidity = humidities.reduce((a, b) => a + b, 0) / humidities.length;
+            const highHumidity = Math.max(...humiditiesHigh);
+            const lowHumidity = Math.min(...humiditiesLow);
+            
+            document.getElementById('stat-avg-humidity').textContent = `${avgHumidity.toFixed(0)}%`;
+            document.getElementById('stat-high-humidity').textContent = `${highHumidity}%`;
+            document.getElementById('stat-low-humidity').textContent = `${lowHumidity}%`;
+        }
+        
+        // Update charts
+        function updateHistoryCharts() {
+            const dates = historyData.map(d => {
+                const date = new Date(d.time);
+                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            });
+            
+            // Identify year boundaries for markers
+            yearBoundaries = []; // Clear and update global variable
+            let currentYear = null;
+            
+            historyData.forEach((d, index) => {
+                const date = new Date(d.time);
+                const year = date.getFullYear();
+                
+                // Only add boundary if we're transitioning to a new year and we have previous data
+                if (currentYear !== null && year !== currentYear) {
+                    yearBoundaries.push({ index: index, year: year });
+                }
+                
+                currentYear = year;
+            });
+            
+            const temps = historyData.map(d => d.temperature_C);
+            const tempsHigh = historyData.map(d => d.temperature_high_c || d.temperature_C);
+            const tempsLow = historyData.map(d => d.temperature_low_c || d.temperature_C);
+            const humidities = historyData.map(d => d.humidity);
+            const humiditiesHigh = historyData.map(d => d.humidity_high || d.humidity);
+            const humiditiesLow = historyData.map(d => d.humidity_low || d.humidity);
+            const rains = historyData.map(d => d.rain_mm);
+            const winds = historyData.map(d => d.wind_speed_m_s);
+            const gusts = historyData.map(d => d.wind_gust_m_s);
+            const uvs = historyData.map(d => d.uv || 0);
+            const lux = historyData.map(d => d.light_lux || 0);
+            
+            // Destroy existing charts
+            Object.values(historyCharts).forEach(chart => chart.destroy());
+            historyCharts = {};
+            
+            // Temperature chart
+            historyCharts.temp = new Chart(document.getElementById('history-temp-chart'), {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'High',
+                        data: tempsHigh,
+                        borderColor: '#ed8796',
+                        backgroundColor: 'rgba(237, 135, 150, 0.1)',
+                        fill: false, // Changed from true to false for performance
+                        tension: 0.1, // Changed from 0.4 to 0.1 for performance
+                        pointRadius: 0, // Disable points for performance
+                        pointHoverRadius: 6
+                    }, {
+                        label: 'Average',
+                        data: temps,
+                        borderColor: '#8aadf4',
+                        backgroundColor: 'rgba(138, 173, 244, 0.1)',
+                        fill: false, // Changed from true to false for performance
+                        tension: 0.1, // Changed from 0.4 to 0.1 for performance
+                        pointRadius: 0, // Disable points for performance
+                        pointHoverRadius: 6
+                    }, {
+                        label: 'Low',
+                        data: tempsLow,
+                        borderColor: '#7dc4e4',
+                        backgroundColor: 'rgba(125, 196, 228, 0.1)',
+                        fill: false, // Changed from true to false for performance
+                        tension: 0.1, // Changed from 0.4 to 0.1 for performance
+                        pointRadius: 0, // Disable points for performance
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    animation: false, // Disable animation for performance
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#cad3f5' } },
+                        tooltip: { 
+                            enabled: true,
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: '#cad3f5',
+                            bodyColor: '#a5adcb',
+                            borderColor: '#363a4f',
+                            borderWidth: 1
+                        },
+                    },
+                    scales: {
+                        x: { ticks: { color: '#a5adcb' }, grid: { color: '#363a4f' } },
+                        y: { ticks: { color: '#a5adcb' }, grid: { color: '#363a4f' } }
+                    }
+                }
+            });
+            
+            // Rainfall chart
+            historyCharts.rain = new Chart(document.getElementById('history-rain-chart'), {
+                type: 'bar',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'Rainfall (mm)',
+                        data: rains,
+                        backgroundColor: 'rgba(125, 196, 228, 0.7)',
+                        borderColor: '#7dc4e4',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    animation: false, // Disable animation for performance
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { 
+                            enabled: true,
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: '#cad3f5',
+                            bodyColor: '#a5adcb',
+                            borderColor: '#363a4f',
+                            borderWidth: 1
+                        },
+                    },
+                    scales: {
+                        x: { ticks: { color: '#a5adcb' }, grid: { display: false } },
+                        y: { ticks: { color: '#a5adcb' }, grid: { color: '#363a4f' } }
+                    }
+                }
+            });
+            
+            // Wind chart
+            historyCharts.wind = new Chart(document.getElementById('history-wind-chart'), {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'Average Wind',
+                        data: winds,
+                        borderColor: '#a6da95',
+                        backgroundColor: 'rgba(166, 218, 149, 0.1)',
+                        fill: false, // Changed from true to false for performance
+                        tension: 0.1, // Changed from 0.4 to 0.1 for performance
+                        pointRadius: 0, // Disable points for performance
+                        pointHoverRadius: 6
+                    }, {
+                        label: 'Max Gust',
+                        data: gusts,
+                        borderColor: '#eed49f',
+                        backgroundColor: 'rgba(238, 212, 159, 0.1)',
+                        fill: false, // Changed from true to false for performance
+                        tension: 0.1, // Changed from 0.4 to 0.1 for performance
+                        pointRadius: 0 // Disable points for performance
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    animation: false, // Disable animation for performance
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#cad3f5' } },
+                        tooltip: { 
+                            enabled: true,
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: '#cad3f5',
+                            bodyColor: '#a5adcb',
+                            borderColor: '#363a4f',
+                            borderWidth: 1
+                        },
+                    },
+                    scales: {
+                        x: { ticks: { color: '#a5adcb' }, grid: { color: '#363a4f' } },
+                        y: { ticks: { color: '#a5adcb' }, grid: { color: '#363a4f' } }
+                    }
+                }
+            });
+            
+            // Humidity chart
+            historyCharts.humidity = new Chart(document.getElementById('history-humidity-chart'), {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'High',
+                        data: humiditiesHigh,
+                        borderColor: '#c6a0f6',
+                        backgroundColor: 'rgba(198, 160, 246, 0.1)',
+                        fill: false, // Changed from true to false for performance
+                        tension: 0.1, // Changed from 0.4 to 0.1 for performance
+                        pointRadius: 0, // Disable points for performance
+                        pointHoverRadius: 6
+                    }, {
+                        label: 'Average',
+                        data: humidities,
+                        borderColor: '#8aadf4',
+                        backgroundColor: 'rgba(138, 173, 244, 0.1)',
+                        fill: false, // Changed from true to false for performance
+                        tension: 0.1, // Changed from 0.4 to 0.1 for performance
+                        pointRadius: 0, // Disable points for performance
+                        pointHoverRadius: 6
+                    }, {
+                        label: 'Low',
+                        data: humiditiesLow,
+                        borderColor: '#7dc4e4',
+                        backgroundColor: 'rgba(125, 196, 228, 0.1)',
+                        fill: false, // Changed from true to false for performance
+                        tension: 0.1, // Changed from 0.4 to 0.1 for performance
+                        pointRadius: 0, // Disable points for performance
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    animation: false, // Disable animation for performance
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#cad3f5' } },
+                        tooltip: { 
+                            enabled: true,
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: '#cad3f5',
+                            bodyColor: '#a5adcb',
+                            borderColor: '#363a4f',
+                            borderWidth: 1
+                        },
+                    },
+                    scales: {
+                        x: { ticks: { color: '#a5adcb' }, grid: { color: '#363a4f' } },
+                        y: { ticks: { color: '#a5adcb' }, grid: { color: '#363a4f' } }
+                    }
+                }
+            });
+            
+            // UV chart
+            historyCharts.uv = new Chart(document.getElementById('history-uv-chart'), {
+                type: 'bar',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'UV Index',
+                        data: uvs,
+                        backgroundColor: uvs.map(uv => {
+                            if (uv >= 8) return 'rgba(237, 135, 150, 0.7)';
+                            if (uv >= 6) return 'rgba(238, 212, 159, 0.7)';
+                            if (uv >= 3) return 'rgba(166, 218, 149, 0.7)';
+                            return 'rgba(138, 173, 244, 0.7)';
+                        }),
+                        borderColor: uvs.map(uv => {
+                            if (uv >= 8) return '#ed8796';
+                            if (uv >= 6) return '#eed49f';
+                            if (uv >= 3) return '#a6da95';
+                            return '#8aadf4';
+                        }),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    animation: false, // Disable animation for performance
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { 
+                            enabled: true,
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: '#cad3f5',
+                            bodyColor: '#a5adcb',
+                            borderColor: '#363a4f',
+                            borderWidth: 1
+                        },
+                    },
+                    scales: {
+                        x: { ticks: { color: '#a5adcb' }, grid: { display: false } },
+                        y: { ticks: { color: '#a5adcb' }, grid: { color: '#363a4f' } }
+                    }
+                }
+            });
+            
+            // Lux chart
+            historyCharts.lux = new Chart(document.getElementById('history-lux-chart'), {
+                type: 'bar',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'Light (lux)',
+                        data: lux,
+                        backgroundColor: 'rgba(249, 226, 175, 0.7)',
+                        borderColor: '#f9e2af',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    animation: false, // Disable animation for performance
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { 
+                            enabled: true,
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: '#cad3f5',
+                            bodyColor: '#a5adcb',
+                            borderColor: '#363a4f',
+                            borderWidth: 1
+                        },
+                    },
+                    scales: {
+                        x: { ticks: { color: '#a5adcb' }, grid: { display: false } },
+                        y: { ticks: { color: '#a5adcb' }, grid: { color: '#363a4f' } }
+                    }
+                }
+            });
+        }
+        
+        // Sort table by column
+        function sortTable(column, direction) {
+            historyData.sort((a, b) => {
+                let valueA, valueB;
+                
+                // Handle different column types
+                if (column === 'date') {
+                    valueA = new Date(a.time);
+                    valueB = new Date(b.time);
+                } else {
+                    valueA = a[column] !== undefined ? a[column] : 0;
+                    valueB = b[column] !== undefined ? b[column] : 0;
+                }
+                
+                // Handle null/undefined values
+                if (valueA === null || valueA === undefined) valueA = 0;
+                if (valueB === null || valueB === undefined) valueB = 0;
+                
+                // Sort based on direction
+                if (direction === 'asc') {
+                    return valueA > valueB ? 1 : valueA < valueB ? -1 : 0;
+                } else {
+                    return valueA < valueB ? 1 : valueA > valueB ? -1 : 0;
+                }
+            });
+            
+            // Update header icons
+            document.querySelectorAll('.sortable').forEach(header => {
+                const icon = header.querySelector('.sort-icon');
+                if (icon) {
+                    // Reset all icons to default
+                    icon.className = 'bi bi-arrow-down-up sort-icon';
+                }
+            });
+            
+            // Set active header icon
+            const activeHeader = document.querySelector(`.sortable[data-column="${column}"]`);
+            if (activeHeader) {
+                const icon = activeHeader.querySelector('.sort-icon');
+                if (icon) {
+                    icon.className = direction === 'asc' ? 'bi bi-arrow-up sort-icon' : 'bi bi-arrow-down sort-icon';
+                }
+            }
+            
+            // Update table with sorted data
+            updateTable();
+        }
+        
+        // Update table
+        function updateTable() {
+            const tbody = document.getElementById('history-table-body');
+            tbody.innerHTML = '';
+            
+            historyData.forEach(reading => {
+                const date = new Date(reading.time);
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                    <td>${reading.temperature_C.toFixed(1)}</td>
+                    <td>${(reading.temperature_high_c || reading.temperature_C).toFixed(1)}</td>
+                    <td>${(reading.temperature_low_c || reading.temperature_C).toFixed(1)}</td>
+                    <td>${reading.humidity}%</td>
+                    <td>${reading.rain_mm.toFixed(1)}</td>
+                    <td>${reading.wind_speed_m_s.toFixed(1)}</td>
+                    <td>${reading.wind_gust_m_s.toFixed(1)}</td>
+                    <td>${reading.uv || 0}</td>
+                    <td>${reading.light_lux || 0}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+        
+        // Export to CSV
+        function exportToCSV() {
+            const headers = ['Date', 'Temperature (°C)', 'High (°C)', 'Low (°C)', 'Humidity (%)', 'Rain (mm)', 'Wind (m/s)', 'Gust (m/s)', 'UV', 'Light (lux)'];
+            const rows = historyData.map(reading => {
+                const date = new Date(reading.time);
+                return [
+                    date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                    reading.temperature_C.toFixed(1),
+                    (reading.temperature_high_c || reading.temperature_C).toFixed(1),
+                    (reading.temperature_low_c || reading.temperature_C).toFixed(1),
+                    reading.humidity,
+                    reading.rain_mm.toFixed(1),
+                    reading.wind_speed_m_s.toFixed(1),
+                    reading.wind_gust_m_s.toFixed(1),
+                    reading.uv || 0,
+                    reading.light_lux || 0
+                ];
+            });
+            
+            const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `weather_history_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
