@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"embed"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
 	"os/signal"
@@ -19,6 +21,9 @@ import (
 	"weather-station/shared/types"
 	"weather-station/shared/workers"
 )
+
+//go:embed static/*
+var staticFiles embed.FS
 
 func main() {
 	// Load configuration from environment variables
@@ -75,8 +80,13 @@ func main() {
 	http.HandleFunc("/api/weather/years", handlers.MethodCheck(http.MethodGet, server.AvailableYearsHandler))
 	http.HandleFunc("/health", handlers.MethodCheck(http.MethodGet, server.HealthCheckHandler))
 
-	// Serve static files for dashboard
-	fileserver := http.FileServer(http.Dir("./static"))
+	// Serve static files for dashboard using embedded filesystem
+	staticFS, err := fs.Sub(staticFiles, "static")
+	if err != nil {
+		logger.Error("Failed to create static filesystem: %v", err)
+		os.Exit(1)
+	}
+	fileserver := http.FileServer(http.FS(staticFS))
 	http.Handle("/", fileserver)
 
 	// Apply logging middleware if enabled
