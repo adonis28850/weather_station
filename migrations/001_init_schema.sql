@@ -20,11 +20,11 @@ CREATE TABLE IF NOT EXISTS readings (
     -- Humidity percentage (0-100)
     humidity INTEGER NOT NULL,
 
-    -- UV Index (0-12, optional field) - matches rtl_433 JSON field 'uv'
+    -- UV Index (0-12, optional field) - matches rtl_433 JSON field 'uvi'
     uv REAL,
 
     -- Light intensity in lux (optional field) - matches rtl_433 JSON field 'light_lux'
-    light_lux INTEGER,
+    light_lux REAL,
 
     -- Wind speed in meters per second
     wind_speed_m_s REAL NOT NULL,
@@ -97,7 +97,7 @@ CREATE TABLE IF NOT EXISTS daily_weather (
     uv_max REAL,
 
     -- Maximum light level in lux recorded during the day
-    light_max INTEGER
+    light_max REAL
 );
 
 -- Create index on date for historical queries

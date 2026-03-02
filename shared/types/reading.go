@@ -9,7 +9,7 @@ type Reading struct {
 	TemperatureC float64 `json:"temperature_C"`
 	Humidity     int     `json:"humidity"`
 	UVIndex      float64 `json:"uvi"`
-	Lux          int     `json:"light_lux"`
+	Lux          float64 `json:"light_lux"`
 	WindSpeedMS  float64 `json:"wind_avg_m_s"`
 	WindGustMS   float64 `json:"wind_max_m_s"`
 	WindDirDeg   int     `json:"wind_dir_deg"`

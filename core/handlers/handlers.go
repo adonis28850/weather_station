@@ -30,7 +30,7 @@ type CurrentWeatherResponse struct {
 	TemperatureC  float64                       `json:"temperature_C"`
 	Humidity      int                           `json:"humidity"`
 	UVIndex       float64                       `json:"uv"`
-	Lux           int                           `json:"light_lux"`
+	Lux           float64                       `json:"light_lux"`
 	WindSpeedMS   float64                       `json:"wind_speed_m_s"`
 	WindGustMS    float64                       `json:"wind_gust_m_s"`
 	WindDirDeg    int                           `json:"wind_dir_deg"`
@@ -330,7 +330,7 @@ func (s *Server) HistoryWeatherHandler(w http.ResponseWriter, r *http.Request) {
 				TemperatureC: avgTemp,
 				Humidity:     int(avgHumidity),
 				UVIndex:      rollup.UVMax,
-				Lux:          rollup.LightMax,
+				Lux:          float64(rollup.LightMax),
 				WindSpeedMS:  rollup.WindMeanMS,
 				WindGustMS:   rollup.WindMaxGustMS,
 				WindDirDeg:   0,
