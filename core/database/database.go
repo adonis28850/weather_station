@@ -85,12 +85,20 @@ func PrepareInsertStatement(db *sql.DB) (*sql.Stmt, error) {
 
 // InsertReading inserts a single reading into the database using a prepared statement
 func InsertReading(insertStmt *sql.Stmt, resultChan chan<- error, reading types.Reading) {
-	// Parse timestamp
-	timestampParsed, err := time.Parse(time.RFC3339Nano, reading.Time)
+	// Parse timestamp - handle both ISO 8601 and rtl_433 format
+	var timestampParsed time.Time
+	var err error
+	
+	// Try ISO 8601 format first (RFC3339Nano)
+	timestampParsed, err = time.Parse(time.RFC3339Nano, reading.Time)
 	if err != nil {
-		logger.Error("Failed to parse timestamp: %v", err)
-		resultChan <- err
-		return
+		// Fall back to rtl_433 format: "2006-01-02 15:04:05"
+		timestampParsed, err = time.Parse("2006-01-02 15:04:05", reading.Time)
+		if err != nil {
+			logger.Error("Failed to parse timestamp: %v", err)
+			resultChan <- err
+			return
+		}
 	}
 
 	// Execute insert with timeout using prepared statement
