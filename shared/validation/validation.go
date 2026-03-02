@@ -76,6 +76,9 @@ func ValidateReading(reading types.Reading) error {
 	if reading.Lux < 0 {
 		return fmt.Errorf("lux out of range (%d)", reading.Lux)
 	}
+	if reading.BatteryOK < 0 || reading.BatteryOK > 1 {
+		return fmt.Errorf("battery out of range (%.2f)", reading.BatteryOK)
+	}
 
 	return nil
 }

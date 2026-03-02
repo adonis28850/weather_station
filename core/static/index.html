@@ -1146,10 +1146,22 @@
             
             // Battery status
             const batteryStatus = document.getElementById('battery-status');
-            const batteryClass = data.battery === 'ok' ? 'battery-ok' : 'battery-low';
-            const batteryIcon = data.battery === 'ok' ? 'bi-battery-full' : 'bi-battery-low';
-            batteryStatus.innerHTML = `<i class="bi ${batteryIcon} ${batteryClass}"></i> <span class="${batteryClass}">${data.battery.toUpperCase()}</span>`;
-            
+            const batteryPercent = Math.round(data.battery * 100);
+            let batteryClass, batteryIcon;
+            if (batteryPercent >= 75) {
+                batteryClass = 'battery-ok';
+                batteryIcon = 'bi-battery-full';
+            } else if (batteryPercent >= 50) {
+                batteryClass = 'battery-ok';
+                batteryIcon = 'bi-battery-three-quarters';
+            } else if (batteryPercent >= 25) {
+                batteryClass = 'battery-ok';
+                batteryIcon = 'bi-battery-half';
+            } else {
+                batteryClass = 'battery-low';
+                batteryIcon = 'bi-battery-low';
+            }
+            batteryStatus.innerHTML = `<i class="bi ${batteryIcon} ${batteryClass}"></i> <span class="${batteryClass}">${batteryPercent}%</span>`;            
             // Astronomical info
             if (data.astronomical) {
                 const sunrise = new Date(data.astronomical.sunrise);

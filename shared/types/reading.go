@@ -8,11 +8,11 @@ type Reading struct {
 	SensorID     int     `json:"id"`
 	TemperatureC float64 `json:"temperature_C"`
 	Humidity     int     `json:"humidity"`
-	UVIndex      float64 `json:"uv"`
+	UVIndex      float64 `json:"uvi"`
 	Lux          int     `json:"light_lux"`
-	WindSpeedMS  float64 `json:"wind_speed_m_s"`
-	WindGustMS   float64 `json:"wind_gust_m_s"`
+	WindSpeedMS  float64 `json:"wind_avg_m_s"`
+	WindGustMS   float64 `json:"wind_max_m_s"`
 	WindDirDeg   int     `json:"wind_dir_deg"`
 	RainMM       float64 `json:"rain_mm"`
-	BatteryOK    string  `json:"battery"`
+	BatteryOK    float64 `json:"battery_ok"`
 }

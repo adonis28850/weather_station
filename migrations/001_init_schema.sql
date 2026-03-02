@@ -38,8 +38,8 @@ CREATE TABLE IF NOT EXISTS readings (
     -- Rainfall in millimeters (cumulative or per reading)
     rain_mm REAL NOT NULL,
 
-    -- Battery status: "ok" or "low" - matches rtl_433 JSON field 'battery'
-    battery TEXT NOT NULL,
+    -- Battery status: 0.0 to 1.0 (where 1.0 = 100% battery) - matches rtl_433 JSON field 'battery_ok'
+    battery REAL NOT NULL,
 
     -- Sensor model (e.g., "Fineoffset-WS90") - matches rtl_433 JSON field 'model'
     model TEXT
