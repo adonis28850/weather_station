@@ -36,7 +36,7 @@ type CurrentWeatherResponse struct {
 	WindDirDeg    int                           `json:"wind_dir_deg"`
 	CurrentRainMM float64                       `json:"current_rain_mm"` // Rain from latest reading
 	DailyRainMM   float64                       `json:"daily_rain_mm"`   // Total rain for today
-	BatteryOK     string                        `json:"battery"`
+	BatteryOK     float64                       `json:"battery"`
 	Astronomical  astronomical.AstronomicalData `json:"astronomical"` // Sunrise, sunset, etc.
 	Latitude      float64                       `json:"latitude"`     // Station latitude
 	Longitude     float64                       `json:"longitude"`    // Station longitude
@@ -335,7 +335,7 @@ func (s *Server) HistoryWeatherHandler(w http.ResponseWriter, r *http.Request) {
 				WindGustMS:   rollup.WindMaxGustMS,
 				WindDirDeg:   0,
 				RainMM:       rollup.RainMM,
-				BatteryOK:    "ok",
+				BatteryOK:    1.0,
 			},
 			TemperatureHighC: rollup.TempHighC,
 			TemperatureLowC:  rollup.TempLowC,
