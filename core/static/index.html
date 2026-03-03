@@ -484,7 +484,7 @@
                     </div>
                     <div class="col-md-4 col-sm-6">
                         <div class="stat-card text-center">
-                            <div class="stat-icon text-dark">
+                            <div class="stat-icon text-info">
                                 <i class="bi bi-compass"></i>
                             </div>
                             <div class="stat-value" id="current-wind-dir">--°</div>
@@ -808,9 +808,9 @@
                                                 <th class="sortable" data-column="temperature_low_c">Low (°C) <i class="bi bi-arrow-down-up sort-icon"></i></th>
                                                 <th class="sortable" data-column="humidity">Humidity (%) <i class="bi bi-arrow-down-up sort-icon"></i></th>
                                                 <th class="sortable" data-column="rain_mm">Rain (mm) <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                                                <th class="sortable" data-column="wind_speed_m_s">Wind (m/s) <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                                                <th class="sortable" data-column="wind_gust_m_s">Gust (m/s) <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                                                <th class="sortable" data-column="uv">UV <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                                <th class="sortable" data-column="wind_avg_m_s">Wind (m/s) <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                                <th class="sortable" data-column="wind_max_m_s">Gust (m/s) <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                                <th class="sortable" data-column="uvi">UV <i class="bi bi-arrow-down-up sort-icon"></i></th>
                                                 <th class="sortable" data-column="light_lux">Light (lux) <i class="bi bi-arrow-down-up sort-icon"></i></th>
                                             </tr>
                                         </thead>
@@ -1202,11 +1202,11 @@
             
             // Stats
             document.getElementById('current-humidity').textContent = `${data.humidity}%`;
-            document.getElementById('current-uv').textContent = data.uv.toFixed(1);
+            document.getElementById('current-uv').textContent = data.uvi.toFixed(1);
             document.getElementById('current-lux').textContent = data.light_lux.toLocaleString();
             document.getElementById('current-rain').textContent = `${data.daily_rain_mm.toFixed(2)} mm`;
-            document.getElementById('current-wind-speed').textContent = `${data.wind_speed_m_s.toFixed(1)} m/s`;
-            document.getElementById('current-wind-gust').textContent = `${data.wind_gust_m_s.toFixed(1)} m/s`;
+            document.getElementById('current-wind-speed').textContent = `${data.wind_avg_m_s.toFixed(1)} m/s`;
+            document.getElementById('current-wind-gust').textContent = `${data.wind_max_m_s.toFixed(1)} m/s`;
             document.getElementById('current-wind-dir').textContent = `${data.wind_dir_deg}°`;
             
             document.getElementById('last-updated').textContent = new Date().toLocaleString();
@@ -1288,7 +1288,7 @@
             document.getElementById('stats-humidity').textContent = `${humidityMin}/${humidityMax}/${Math.round(humidityAvg)}%`;
             
             // Wind stats
-            const windSpeeds = data.map(d => d.wind_speed_m_s);
+            const windSpeeds = data.map(d => d.wind_avg_m_s);
             const windMax = Math.max(...windSpeeds);
             const windAvg = windSpeeds.reduce((a, b) => a + b, 0) / windSpeeds.length;
             document.getElementById('stats-wind').textContent = `${windMax.toFixed(1)}/${windAvg.toFixed(1)} m/s`;
@@ -1298,7 +1298,7 @@
             document.getElementById('stats-rain').textContent = `${totalRain.toFixed(2)} mm`;
             
             // Max UV
-            const uvs = data.map(d => d.uv);
+            const uvs = data.map(d => d.uvi);
             const maxUV = Math.max(...uvs);
             document.getElementById('stats-uv').textContent = maxUV.toFixed(1);
             
@@ -1410,8 +1410,8 @@
             // Wind chart
             windChart = updateMultiLineChart('windChart', windChart, labels,
                 [
-                    { label: 'Wind Speed', data: sampledData.map(d => d.wind_speed_m_s), color: '#a6da95' },
-                    { label: 'Wind Gust', data: sampledData.map(d => d.wind_gust_m_s), color: '#f5a97f' }
+                    { label: 'Wind Speed', data: sampledData.map(d => d.wind_avg_m_s), color: '#a6da95' },
+                    { label: 'Wind Gust', data: sampledData.map(d => d.wind_max_m_s), color: '#f5a97f' }
                 ],
                 actualChartType,
                 daysDiff
@@ -1429,7 +1429,7 @@
             
             // UV Index chart
             uvChart = updateChart('uvChart', uvChart, labels,
-                sampledData.map(d => d.uv),
+                sampledData.map(d => d.uvi),
                 'UV Index',
                 '#eed49f',
                 actualChartType,
@@ -2226,9 +2226,9 @@ function updateRangeChart(canvasId, chartInstance, labels, highData, lowData, la
             const humiditiesHigh = historyData.map(d => d.humidity_high || d.humidity);
             const humiditiesLow = historyData.map(d => d.humidity_low || d.humidity);
             const rains = historyData.map(d => d.rain_mm);
-            const winds = historyData.map(d => d.wind_speed_m_s);
-            const gusts = historyData.map(d => d.wind_gust_m_s);
-            const uvs = historyData.map(d => d.uv || 0);
+            const winds = historyData.map(d => d.wind_avg_m_s);
+            const gusts = historyData.map(d => d.wind_max_m_s);
+            const uvs = historyData.map(d => d.uvi || 0);
             const lux = historyData.map(d => d.light_lux || 0);
             
             // Destroy existing charts
@@ -2590,9 +2590,9 @@ function updateRangeChart(canvasId, chartInstance, labels, highData, lowData, la
                     <td>${(reading.temperature_low_c || reading.temperature_C).toFixed(1)}</td>
                     <td>${reading.humidity}%</td>
                     <td>${reading.rain_mm.toFixed(1)}</td>
-                    <td>${reading.wind_speed_m_s.toFixed(1)}</td>
-                    <td>${reading.wind_gust_m_s.toFixed(1)}</td>
-                    <td>${reading.uv || 0}</td>
+                    <td>${reading.wind_avg_m_s.toFixed(1)}</td>
+                    <td>${reading.wind_max_m_s.toFixed(1)}</td>
+                    <td>${reading.uvi || 0}</td>
                     <td>${reading.light_lux || 0}</td>
                 `;
                 tbody.appendChild(row);
@@ -2611,9 +2611,9 @@ function updateRangeChart(canvasId, chartInstance, labels, highData, lowData, la
                     (reading.temperature_low_c || reading.temperature_C).toFixed(1),
                     reading.humidity,
                     reading.rain_mm.toFixed(1),
-                    reading.wind_speed_m_s.toFixed(1),
-                    reading.wind_gust_m_s.toFixed(1),
-                    reading.uv || 0,
+                    reading.wind_avg_m_s.toFixed(1),
+                    reading.wind_max_m_s.toFixed(1),
+                    reading.uvi || 0,
                     reading.light_lux || 0
                 ];
             });
