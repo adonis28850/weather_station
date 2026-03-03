@@ -346,6 +346,37 @@
         .sortable.desc .sort-icon {
             opacity: 1;
         }
+        
+        /* UV Index Legend Styles */
+        .uv-legend {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+        }
+        
+        .uv-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .uv-legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .uv-legend-text {
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body>
@@ -604,6 +635,28 @@
                         <div class="chart-container">
                             <h5><i class="bi bi-sun"></i> UV Index <span id="uv-chart-range" style="font-weight: 400; font-size: 0.85em; color: var(--text-secondary);"></span></h5>
                             <canvas id="uvChart"></canvas>
+                            <div class="uv-legend" id="uv-legend">
+                                <div class="uv-legend-item">
+                                    <span class="uv-legend-color" style="background-color: #00FF00;"></span>
+                                    <span class="uv-legend-text">Low (0-2)</span>
+                                </div>
+                                <div class="uv-legend-item">
+                                    <span class="uv-legend-color" style="background-color: #FFFF00;"></span>
+                                    <span class="uv-legend-text">Moderate (3-5)</span>
+                                </div>
+                                <div class="uv-legend-item">
+                                    <span class="uv-legend-color" style="background-color: #FFA500;"></span>
+                                    <span class="uv-legend-text">High (6-7)</span>
+                                </div>
+                                <div class="uv-legend-item">
+                                    <span class="uv-legend-color" style="background-color: #FF0000;"></span>
+                                    <span class="uv-legend-text">Very High (8-10)</span>
+                                </div>
+                                <div class="uv-legend-item">
+                                    <span class="uv-legend-color" style="background-color: #8B00FF;"></span>
+                                    <span class="uv-legend-text">Extreme (11+)</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="col-md-6">
@@ -1035,7 +1088,19 @@
             };
         }
         
-        // Get time range label
+        // Get UV index color based on value
+        function getUVColor(uv) {
+            if (uv >= 11) return { color: '#8B00FF', label: 'Extreme (11+)' };
+            if (uv >= 8) return { color: '#FF0000', label: 'Very High (8-10)' };
+            if (uv >= 6) return { color: '#FFA500', label: 'High (6-7)' };
+            if (uv >= 3) return { color: '#FFFF00', label: 'Moderate (3-5)' };
+            return { color: '#00FF00', label: 'Low (0-2)' };
+        }
+        
+        // Get UV index color for chart line (returns array of colors for each point)
+        function getUVColors(data) {
+            return data.map(d => getUVColor(d.uvi || d.uv || 0).color);
+        }
         function getTimeRangeLabel() {
             const timeParams = getTimeRangeParams();
             const start = timeParams.startObj;
@@ -1203,6 +1268,7 @@
             // Stats
             document.getElementById('current-humidity').textContent = `${data.humidity}%`;
             document.getElementById('current-uv').textContent = data.uvi.toFixed(1);
+            document.getElementById('current-uv').style.color = getUVColor(data.uvi).color;
             document.getElementById('current-lux').textContent = data.light_lux.toLocaleString();
             document.getElementById('current-rain').textContent = `${data.daily_rain_mm.toFixed(2)} mm`;
             document.getElementById('current-wind-speed').textContent = `${data.wind_avg_m_s.toFixed(1)} m/s`;
@@ -1428,10 +1494,8 @@
             );
             
             // UV Index chart
-            uvChart = updateChart('uvChart', uvChart, labels,
+            uvChart = updateUVChart('uvChart', uvChart, labels,
                 sampledData.map(d => d.uvi),
-                'UV Index',
-                '#eed49f',
                 actualChartType,
                 chartType === 'area',
                 daysDiff
@@ -1449,7 +1513,127 @@
         }
 
 // Update single line/bar chart
-function updateChart(canvasId, chartInstance, labels, data, label, color, chartType = 'line', fill = false, daysDiff = 0) {
+// Update UV chart with colored segments and legend
+        function updateUVChart(canvasId, chartInstance, labels, data, chartType = 'line', fill = false, daysDiff = 0) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) {
+                return null;
+            }
+            
+            const ctx = canvas.getContext('2d');
+            
+            // Get any existing chart on this canvas and destroy it
+            const existingChart = Chart.getChart(canvas);
+            if (existingChart) {
+                existingChart.destroy();
+            }
+            
+            // Destroy the passed chart instance if it exists
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+            
+            // Create gradient segments based on UV index ranges
+            const segmentColors = data.map(uv => getUVColor(uv || 0).color);
+            
+            // Determine appropriate tick interval based on data range
+            let maxTicksLimit;
+            if (daysDiff <= 1) {
+                maxTicksLimit = 12;
+            } else if (daysDiff <= 7) {
+                maxTicksLimit = 7;
+            } else if (daysDiff <= 30) {
+                maxTicksLimit = 10;
+            } else {
+                maxTicksLimit = 12;
+            }
+            
+            const chart = new Chart(ctx, {
+                type: chartType,
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'UV Index',
+                        data: data,
+                        borderColor: segmentColors,
+                        backgroundColor: fill ? segmentColors.map(c => c + '33') : 'transparent',
+                        fill: fill,
+                        tension: 0.1,
+                        pointRadius: 0,
+                        pointHoverRadius: 4,
+                        segment: {
+                            borderColor: ctx => segmentColors[ctx.p0DataIndex],
+                            backgroundColor: ctx => (fill ? segmentColors[ctx.p0DataIndex] + '33' : 'transparent')
+                        }
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false // Disable default legend, using custom HTML legend
+                        },
+                        tooltip: {
+                            enabled: true,
+                            backgroundColor: '#1e2030',
+                            titleColor: '#cad3f5',
+                            bodyColor: '#a5adcb',
+                            borderColor: '#363a4f',
+                            borderWidth: 1,
+                            padding: 12,
+                            displayColors: false,
+                            callbacks: {
+                                label: function(context) {
+                                    const uv = context.parsed.y;
+                                    const uvInfo = getUVColor(uv);
+                                    return `UV Index: ${uv.toFixed(1)} - ${uvInfo.label}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: '#a5adcb',
+                                maxTicksLimit: maxTicksLimit
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: '#a5adcb'
+                            },
+                            title: {
+                                display: true,
+                                text: 'UV Index',
+                                color: '#a5adcb'
+                            }
+                        }
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    animation: {
+                        duration: 0
+                    }
+                }
+            });
+            
+            return chart;
+        }
+        
+        // Update chart (generic function for other charts)
+        function updateChart(canvasId, chartInstance, labels, data, label, color, chartType = 'line', fill = false, daysDiff = 0) {
     
     const canvas = document.getElementById(canvasId);
     if (!canvas) {
@@ -2448,18 +2632,8 @@ function updateRangeChart(canvasId, chartInstance, labels, highData, lowData, la
                     datasets: [{
                         label: 'UV Index',
                         data: uvs,
-                        backgroundColor: uvs.map(uv => {
-                            if (uv >= 8) return 'rgba(237, 135, 150, 0.7)';
-                            if (uv >= 6) return 'rgba(238, 212, 159, 0.7)';
-                            if (uv >= 3) return 'rgba(166, 218, 149, 0.7)';
-                            return 'rgba(138, 173, 244, 0.7)';
-                        }),
-                        borderColor: uvs.map(uv => {
-                            if (uv >= 8) return '#ed8796';
-                            if (uv >= 6) return '#eed49f';
-                            if (uv >= 3) return '#a6da95';
-                            return '#8aadf4';
-                        }),
+                        backgroundColor: uvs.map(uv => getUVColor(uv || 0).color + 'B3'), // Add transparency
+                        borderColor: uvs.map(uv => getUVColor(uv || 0).color),
                         borderWidth: 1
                     }]
                 },
