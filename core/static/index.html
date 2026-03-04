@@ -998,10 +998,14 @@
                 
                 if (Array.isArray(years) && years.length > 0) {
                     years.forEach(year => {
-                        const option = document.createElement('option');
-                        option.value = year;
-                        option.textContent = year;
-                        yearSelect.appendChild(option);
+                        // Check if this year already exists in the dropdown
+                        const existingOption = yearSelect.querySelector(`option[value="${year}"]`);
+                        if (!existingOption) {
+                            const option = document.createElement('option');
+                            option.value = year;
+                            option.textContent = year;
+                            yearSelect.appendChild(option);
+                        }
                     });
                 } else {
                     // Fallback: show current year and 5 years back
@@ -1106,35 +1110,47 @@
             const start = timeParams.startObj;
             const end = timeParams.endObj;
             
-            const formatDate = (date) => {
-                const now = new Date();
-                const isToday = date.toDateString() === now.toDateString();
-                const isYesterday = date.toDateString() === new Date(now.getTime() - 24 * 60 * 60 * 1000).toDateString();
-                
-                if (isToday) {
-                    return `Today, ${formatTime(date.toISOString())}`;
-                } else if (isYesterday) {
-                    return `Yesterday, ${formatTime(date.toISOString())}`;
-                } else {
-                    return `${formatDateOnly(date.toISOString())}`;
-                }
-            };
-            
             const formatDateOnly = (isoString) => {
                 const date = new Date(isoString);
                 return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            };
+            
+            const formatTime = (isoString) => {
+                const date = new Date(isoString);
+                return date.toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    hour12: false 
+                });
             };
             
             const timeDiff = end - start;
             const hoursDiff = timeDiff / (1000 * 60 * 60);
             const daysDiff = hoursDiff / 24;
             
-            if (hoursDiff <= 24) {
-                return `${formatDate(start)} - ${formatTime(end.toISOString())}`;
-            } else if (daysDiff <= 7) {
-                return `${formatDateOnly(start.toISOString())} - ${formatDateOnly(end.toISOString())}`;
+            // For custom ranges or ranges > 24 hours, show full dates
+            if (currentTimeRange === 'custom' || hoursDiff > 24) {
+                if (daysDiff <= 7) {
+                    return `${formatDateOnly(start.toISOString())} - ${formatDateOnly(end.toISOString())}`;
+                } else {
+                    return `${formatDateOnly(start.toISOString())} to ${formatDateOnly(end.toISOString())}`;
+                }
             } else {
-                return `${formatDateOnly(start.toISOString())} to ${formatDateOnly(end.toISOString())}`;
+                // For short ranges (< 24 hours), show relative time
+                const now = new Date();
+                const isToday = start.toDateString() === now.toDateString();
+                const isYesterday = start.toDateString() === new Date(now.getTime() - 24 * 60 * 60 * 1000).toDateString();
+                
+                let startLabel;
+                if (isToday) {
+                    startLabel = `Today, ${formatTime(start.toISOString())}`;
+                } else if (isYesterday) {
+                    startLabel = `Yesterday, ${formatTime(start.toISOString())}`;
+                } else {
+                    startLabel = `${formatDateOnly(start.toISOString())}`;
+                }
+                
+                return `${startLabel} - ${formatTime(end.toISOString())}`;
             }
         }
         

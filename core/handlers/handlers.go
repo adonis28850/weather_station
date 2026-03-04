@@ -56,8 +56,8 @@ type DailyRollup struct {
 	ReadingsCount   int
 	FirstReadingTS  string
 	LastReadingTS   string
-	UVMax           float64
-	LightMax        int
+	UVMax           sql.NullFloat64
+	LightMax        sql.NullInt64
 }
 
 // Server represents the HTTP server with database and configuration
@@ -288,7 +288,7 @@ func (s *Server) HistoryWeatherHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Query daily_weather table for aggregated data
-	dailyQuery := `SELECT day_date, temp_high_c, temp_low_c, humidity_high, humidity_low, rain_mm, wind_max_gust_m_s, wind_mean_m_s, wind_sample_count, readings_count, first_reading_ts, last_reading_ts, uv_max, light_max FROM daily_weather WHERE day_date BETWEEN $1 AND $2 ORDER BY day_date ASC`
+	dailyQuery := `SELECT day_date, temp_high_c, temp_low_c, humidity_high, humidity_low, rain_mm, wind_max_gust_m_s, wind_mean_m_s, wind_sample_count, readings_count, first_reading_ts, last_reading_ts, uv_max, light_max FROM daily_weather WHERE day_date BETWEEN $1::date AND $2::date ORDER BY day_date ASC`
 
 	ctx, cancel := context.WithTimeout(context.Background(), QueryTimeout)
 	defer cancel()
@@ -322,6 +322,17 @@ func (s *Server) HistoryWeatherHandler(w http.ResponseWriter, r *http.Request) {
 		avgTemp := (rollup.TempHighC + rollup.TempLowC) / 2
 		avgHumidity := (rollup.HumidityHigh + rollup.HumidityLow) / 2
 
+		// Handle nullable UV and light values
+		var uvIndex float64
+		if rollup.UVMax.Valid {
+			uvIndex = rollup.UVMax.Float64
+		}
+		
+		var lux float64
+		if rollup.LightMax.Valid {
+			lux = float64(rollup.LightMax.Int64)
+		}
+
 		reader := DailyRollupReading{
 			Reading: types.Reading{
 				Time:         dayDate.Format(time.RFC3339Nano),
@@ -329,8 +340,8 @@ func (s *Server) HistoryWeatherHandler(w http.ResponseWriter, r *http.Request) {
 				SensorID:     1,
 				TemperatureC: avgTemp,
 				Humidity:     int(avgHumidity),
-				UVIndex:      rollup.UVMax,
-				Lux:          float64(rollup.LightMax),
+				UVIndex:      uvIndex,
+				Lux:          lux,
 				WindSpeedMS:  rollup.WindMeanMS,
 				WindGustMS:   rollup.WindMaxGustMS,
 				WindDirDeg:   0,
