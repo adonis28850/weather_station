@@ -14,5 +14,7 @@ type Reading struct {
 	WindGustMS   float64 `json:"wind_max_m_s"`
 	WindDirDeg   int     `json:"wind_dir_deg"`
 	RainMM       float64 `json:"rain_mm"`
+	RainStart    int     `json:"rain_start"` // Rain detection status: 1 = raining, 0 = not raining
 	BatteryOK    float64 `json:"battery_ok"`
+	Firmware     int     `json:"firmware"`  // Firmware version (e.g., 160 = version 1.6.0)
 }

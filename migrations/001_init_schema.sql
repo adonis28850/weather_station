@@ -38,11 +38,19 @@ CREATE TABLE IF NOT EXISTS readings (
     -- Rainfall in millimeters (cumulative or per reading)
     rain_mm REAL NOT NULL,
 
+    -- Rain detection status from sensor: 1 = raining, 0 = not raining
+    -- This field indicates whether the sensor detects a rain event in progress
+    -- Used for dew filtering (primary filter)
+    rain_start INTEGER DEFAULT 0,
+
     -- Battery status: 0.0 to 1.0 (where 1.0 = 100% battery) - matches rtl_433 JSON field 'battery_ok'
     battery REAL NOT NULL,
 
     -- Sensor model (e.g., "Fineoffset-WS90") - matches rtl_433 JSON field 'model'
-    model TEXT
+    model TEXT,
+
+    -- Sensor firmware version (e.g., 160 = version 1.6.0) - matches rtl_433 JSON field 'firmware'
+    firmware INTEGER DEFAULT 0
 );
 
 -- Create index on timestamp for time-series queries
@@ -52,6 +60,10 @@ CREATE INDEX IF NOT EXISTS idx_readings_timestamp ON readings(timestamp DESC);
 -- Create composite index on sensor_id and timestamp
 -- Optimizes queries for specific sensors over time ranges
 CREATE INDEX IF NOT EXISTS idx_readings_sensor_timestamp ON readings(sensor_id, timestamp DESC);
+
+-- Create index on rain_start for filtering queries
+-- Optimizes dew filtering based on sensor's rain detection
+CREATE INDEX IF NOT EXISTS idx_readings_rain_start ON readings(rain_start);
 
 -- Create the daily rollups table
 -- This table stores aggregated data for each day (permanent storage)

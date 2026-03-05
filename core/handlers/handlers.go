@@ -37,6 +37,7 @@ type CurrentWeatherResponse struct {
 	CurrentRainMM float64                       `json:"current_rain_mm"` // Rain from latest reading
 	DailyRainMM   float64                       `json:"daily_rain_mm"`   // Total rain for today
 	BatteryOK     float64                       `json:"battery"`
+	Firmware      int                           `json:"firmware"`       // Firmware version (e.g., 160 = version 1.6.0)
 	Astronomical  astronomical.AstronomicalData `json:"astronomical"` // Sunrise, sunset, etc.
 	Latitude      float64                       `json:"latitude"`     // Station latitude
 	Longitude     float64                       `json:"longitude"`    // Station longitude
@@ -184,7 +185,7 @@ func (s *Server) CurrentWeatherHandler(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	query := s.db.QueryRowContext(ctx,
-		"SELECT sensor_id, timestamp, temperature_c, humidity, uv, light_lux, wind_speed_m_s, wind_gust_m_s, wind_dir_deg, rain_mm, battery, model FROM readings ORDER BY timestamp DESC LIMIT 1")
+		"SELECT sensor_id, timestamp, temperature_c, humidity, uv, light_lux, wind_speed_m_s, wind_gust_m_s, wind_dir_deg, rain_mm, battery, model, rain_start, firmware FROM readings ORDER BY timestamp DESC LIMIT 1")
 
 	var reader types.Reading
 	var dbSensorID int
@@ -192,7 +193,7 @@ func (s *Server) CurrentWeatherHandler(w http.ResponseWriter, r *http.Request) {
 
 	err := query.Scan(&dbSensorID, &timestamp, &reader.TemperatureC,
 		&reader.Humidity, &reader.UVIndex, &reader.Lux, &reader.WindSpeedMS,
-		&reader.WindGustMS, &reader.WindDirDeg, &reader.RainMM, &reader.BatteryOK, &reader.Model)
+		&reader.WindGustMS, &reader.WindDirDeg, &reader.RainMM, &reader.BatteryOK, &reader.Model, &reader.RainStart, &reader.Firmware)
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -213,14 +214,45 @@ func (s *Server) CurrentWeatherHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel = context.WithTimeout(context.Background(), QueryTimeout)
 	defer cancel()
 
+	// Calculate daily rain as delta between first and last reading of the day
+	// rain_mm is a cumulative counter from the WS90 sensor
+	// Handle sensor reset: if counter was reset, sum positive deltas instead
 	var dailyRain float64
+	var firstRainMM, lastRainMM float64
 	startOfDay := time.Now().Truncate(24 * time.Hour)
 	endOfDay := startOfDay.Add(24 * time.Hour)
-	rainQuery := s.db.QueryRowContext(ctx, "SELECT COALESCE(SUM(rain_mm), 0) FROM readings WHERE timestamp >= $1 AND timestamp < $2", startOfDay, endOfDay)
-	err = rainQuery.Scan(&dailyRain)
 
-	if err != nil {
-		logger.Error("Failed to query daily rainfall: %v", err)
+	// Get first rain reading of the day
+	firstRainQuery := s.db.QueryRowContext(ctx,
+		"SELECT rain_mm FROM readings WHERE timestamp >= $1 AND timestamp < $2 ORDER BY timestamp ASC LIMIT 1",
+		startOfDay, endOfDay)
+	err = firstRainQuery.Scan(&firstRainMM)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		logger.Error("Failed to query first daily rain reading: %v", err)
+		firstRainMM = 0
+	}
+
+	// Get last rain reading of the day
+	lastRainQuery := s.db.QueryRowContext(ctx,
+		"SELECT rain_mm FROM readings WHERE timestamp >= $1 AND timestamp < $2 ORDER BY timestamp DESC LIMIT 1",
+		startOfDay, endOfDay)
+	err = lastRainQuery.Scan(&lastRainMM)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		logger.Error("Failed to query last daily rain reading: %v", err)
+		lastRainMM = 0
+	}
+
+	// Calculate daily rain with reset detection
+	// Handle case where rain counter starts at 0
+	if !errors.Is(err, sql.ErrNoRows) && firstRainMM >= 0 && lastRainMM >= 0 {
+		if lastRainMM >= firstRainMM {
+			// No reset detected, use simple delta
+			dailyRain = lastRainMM - firstRainMM
+		} else {
+			// Counter was reset during the day, calculate by summing positive deltas
+			dailyRain = s.calculateRainWithResetDetection(ctx, startOfDay, endOfDay)
+		}
+	} else {
 		dailyRain = 0
 	}
 
@@ -242,6 +274,7 @@ func (s *Server) CurrentWeatherHandler(w http.ResponseWriter, r *http.Request) {
 		CurrentRainMM: reader.RainMM,
 		DailyRainMM:   dailyRain,
 		BatteryOK:     reader.BatteryOK,
+		Firmware:      reader.Firmware,
 		Astronomical:  astronomicalData,
 		Latitude:      s.config.Latitude(),
 		Longitude:     s.config.Longitude(),
@@ -449,7 +482,7 @@ func (s *Server) RecentWeatherHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Query readings table for raw data
-	query := `SELECT sensor_id, timestamp, temperature_c, humidity, uv, light_lux, wind_speed_m_s, wind_gust_m_s, wind_dir_deg, rain_mm, battery, model FROM readings WHERE timestamp BETWEEN $1 AND $2 ORDER BY timestamp ASC LIMIT $3`
+	query := `SELECT sensor_id, timestamp, temperature_c, humidity, uv, light_lux, wind_speed_m_s, wind_gust_m_s, wind_dir_deg, rain_mm, battery, model, rain_start, firmware FROM readings WHERE timestamp BETWEEN $1 AND $2 ORDER BY timestamp ASC LIMIT $3`
 
 	ctx, cancel := context.WithTimeout(context.Background(), QueryTimeout)
 	defer cancel()
@@ -482,7 +515,9 @@ func (s *Server) RecentWeatherHandler(w http.ResponseWriter, r *http.Request) {
 			&reader.WindDirDeg,
 			&reader.RainMM,
 			&reader.BatteryOK,
-			&reader.Model)
+			&reader.Model,
+			&reader.RainStart,
+			&reader.Firmware)
 
 		if err != nil {
 			logger.Error("Failed to scan row in recent weather handler: %v", err)
@@ -534,4 +569,39 @@ func (s *Server) UpdateAstronomicalData() {
 	s.astronomicalMutex.Lock()
 	s.cachedAstronomical = data
 	s.astronomicalMutex.Unlock()
+}
+
+// calculateRainWithResetDetection calculates rain by summing positive deltas
+// This is used when a sensor reset is detected (lastRainMM < firstRainMM)
+func (s *Server) calculateRainWithResetDetection(ctx context.Context, start, end time.Time) float64 {
+	query := `SELECT timestamp, rain_mm FROM readings WHERE timestamp >= $1 AND timestamp < $2 ORDER BY timestamp ASC`
+
+	rows, err := s.db.QueryContext(ctx, query, start, end)
+	if err != nil {
+		logger.Error("Failed to query rain readings for reset detection: %v", err)
+		return 0
+	}
+	defer rows.Close()
+
+	var totalRain float64
+	var prevRain float64
+
+	for rows.Next() {
+		var ts time.Time
+		var rainMM float64
+
+		if err := rows.Scan(&ts, &rainMM); err != nil {
+			logger.Error("Failed to scan rain reading: %v", err)
+			continue
+		}
+
+		// Only add positive deltas (ignore resets and decreases)
+		if prevRain > 0 && rainMM > prevRain {
+			totalRain += (rainMM - prevRain)
+		}
+
+		prevRain = rainMM
+	}
+
+	return totalRain
 }

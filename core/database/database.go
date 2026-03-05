@@ -72,8 +72,8 @@ func ConnectWithRetry(cfg config.Config) (*sql.DB, error) {
 // This should be called once at startup and reused for all insertions
 func PrepareInsertStatement(db *sql.DB) (*sql.Stmt, error) {
 	query := `INSERT INTO readings 
-		(sensor_id, timestamp, temperature_c, humidity, uv, light_lux, wind_speed_m_s, wind_gust_m_s, wind_dir_deg, rain_mm, battery, model)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
+		(sensor_id, timestamp, temperature_c, humidity, uv, light_lux, wind_speed_m_s, wind_gust_m_s, wind_dir_deg, rain_mm, battery, model, rain_start, firmware)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`
 	
 	stmt, err := db.Prepare(query)
 	if err != nil {
@@ -115,7 +115,9 @@ func InsertReading(insertStmt *sql.Stmt, resultChan chan<- error, reading types.
 		reading.WindDirDeg,
 		reading.RainMM,
 		reading.BatteryOK,
-		reading.Model)
+		reading.Model,
+		reading.RainStart,
+		reading.Firmware)
 	if err != nil {
 		logger.Error("Failed to insert reading: %v", err)
 		resultChan <- err

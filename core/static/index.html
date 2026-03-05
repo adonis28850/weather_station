@@ -421,6 +421,7 @@
                             <p id="current-date">--</p>
                             <h1 id="current-temp">--°C</h1>
                             <p id="current-model">--</p>
+                            <p id="current-firmware" class="small">--</p>
                         </div>
                         <div class="col-md-4 text-center">
                             <div id="weather-icon" class="weather-icon-large">
@@ -861,9 +862,8 @@
                                                 <th class="sortable" data-column="temperature_low_c">Low (°C) <i class="bi bi-arrow-down-up sort-icon"></i></th>
                                                 <th class="sortable" data-column="humidity">Humidity (%) <i class="bi bi-arrow-down-up sort-icon"></i></th>
                                                 <th class="sortable" data-column="rain_mm">Rain (mm) <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                                                <th class="sortable" data-column="wind_avg_m_s">Wind (m/s) <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                                                <th class="sortable" data-column="wind_max_m_s">Gust (m/s) <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                                                <th class="sortable" data-column="uvi">UV <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                                <th class="sortable" data-column="wind_avg_m_s">Wind (km/h) <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                                                    <th class="sortable" data-column="wind_max_m_s">Gust (km/h) <i class="bi bi-arrow-down-up sort-icon"></i></th>                                                <th class="sortable" data-column="uvi">UV <i class="bi bi-arrow-down-up sort-icon"></i></th>
                                                 <th class="sortable" data-column="light_lux">Light (lux) <i class="bi bi-arrow-down-up sort-icon"></i></th>
                                             </tr>
                                         </thead>
@@ -1217,6 +1217,7 @@
                 document.getElementById('current-date').textContent = formatDate(now.toISOString());
             document.getElementById('current-temp').textContent = `${data.temperature_C.toFixed(1)}°C`;
             document.getElementById('current-model').textContent = data.model;
+            document.getElementById('current-firmware').textContent = `Firmware: ${convertFirmware(data.firmware)}`;
             
             // Location coordinates
             if (data.latitude !== undefined && data.longitude !== undefined) {
@@ -1287,8 +1288,8 @@
             document.getElementById('current-uv').style.color = getUVColor(data.uvi).color;
             document.getElementById('current-lux').textContent = data.light_lux.toLocaleString();
             document.getElementById('current-rain').textContent = `${data.daily_rain_mm.toFixed(2)} mm`;
-            document.getElementById('current-wind-speed').textContent = `${data.wind_avg_m_s.toFixed(1)} m/s`;
-            document.getElementById('current-wind-gust').textContent = `${data.wind_max_m_s.toFixed(1)} m/s`;
+            document.getElementById('current-wind-speed').textContent = `${convertMStoKmh(data.wind_avg_m_s).toFixed(1)} km/h`;
+            document.getElementById('current-wind-gust').textContent = `${convertMStoKmh(data.wind_max_m_s).toFixed(1)} km/h`;
             document.getElementById('current-wind-dir').textContent = `${data.wind_dir_deg}°`;
             
             document.getElementById('last-updated').textContent = new Date().toLocaleString();
@@ -1343,6 +1344,85 @@
             }
         }
         
+        // Calculate rain delta for recent readings (cumulative counter)
+        // For daily rollups, rain_mm is already the delta, so return as-is
+        // Handles sensor reset detection by summing positive deltas
+        function calculateRainDelta(readings) {
+            if (!readings || readings.length === 0) return 0;
+
+            // Check if this is daily rollup data (has temperature_high_c field)
+            if (readings[0].temperature_high_c !== undefined) {
+                // Daily rollup data - rain_mm is already the delta
+                return readings.reduce((sum, d) => sum + (d.rain_mm || 0), 0);
+            }
+
+            // Recent readings data - need to calculate delta from cumulative counter
+            const sorted = [...readings].sort((a, b) => new Date(a.time) - new Date(b.time));
+            const firstRain = sorted[0].rain_mm || 0;
+            const lastRain = sorted[sorted.length - 1].rain_mm || 0;
+
+            // Check for sensor reset (counter decreased)
+            if (lastRain >= firstRain) {
+                // No reset detected, use simple delta
+                return lastRain - firstRain;
+            } else {
+                // Counter was reset, calculate by summing positive deltas
+                let totalRain = 0;
+                let prevRain = null;
+
+                for (const reading of sorted) {
+                    if (prevRain !== null && reading.rain_mm > prevRain) {
+                        // Only add positive deltas (ignore resets and decreases)
+                        totalRain += (reading.rain_mm - prevRain);
+                    }
+                    prevRain = reading.rain_mm;
+                }
+
+                return totalRain;
+            }
+        }
+
+        // Calculate rain deltas array for charts (for recent readings)
+        function calculateRainDeltas(readings) {
+            if (!readings || readings.length === 0) return [];
+
+            // Check if this is daily rollup data
+            if (readings[0].temperature_high_c !== undefined) {
+                // Daily rollup data - rain_mm is already the delta
+                return readings.map(d => d.rain_mm || 0);
+            }
+
+            // Recent readings data - calculate deltas between consecutive readings
+            const sorted = [...readings].sort((a, b) => new Date(a.time) - new Date(b.time));
+            const deltas = [];
+
+            for (let i = 1; i < sorted.length; i++) {
+                const delta = sorted[i].rain_mm - sorted[i-1].rain_mm;
+                deltas.push(delta > 0 ? delta : 0); // Only count positive deltas
+            }
+
+            return deltas;
+        }
+
+        // Convert wind speed from m/s to km/h
+        function convertMStoKmh(ms) {
+            return ms * 3.6;
+        }
+
+        // Convert firmware number to version string (e.g., 160 → "1.6.0")
+        function convertFirmware(firmware) {
+            if (!firmware || firmware === 0) return 'Unknown';
+            const firmwareStr = firmware.toString();
+            if (firmwareStr.length === 1) {
+                return `${firmwareStr}.0.0`;
+            } else if (firmwareStr.length === 2) {
+                return `${firmwareStr[0]}.${firmwareStr[1]}.0`;
+            } else if (firmwareStr.length === 3) {
+                return `${firmwareStr[0]}.${firmwareStr[1]}.${firmwareStr[2]}`;
+            }
+            return firmwareStr;
+        }
+
         // Update statistics
         function updateStatistics(data) {
             if (data.length === 0) {
@@ -1373,10 +1453,10 @@
             const windSpeeds = data.map(d => d.wind_avg_m_s);
             const windMax = Math.max(...windSpeeds);
             const windAvg = windSpeeds.reduce((a, b) => a + b, 0) / windSpeeds.length;
-            document.getElementById('stats-wind').textContent = `${windMax.toFixed(1)}/${windAvg.toFixed(1)} m/s`;
+            document.getElementById('stats-wind').textContent = `${convertMStoKmh(windMax).toFixed(1)}/${convertMStoKmh(windAvg).toFixed(1)} km/h`;
             
             // Total rainfall
-            const totalRain = data.reduce((sum, d) => sum + (d.rain_mm || 0), 0);
+            const totalRain = calculateRainDelta(data);
             document.getElementById('stats-rain').textContent = `${totalRain.toFixed(2)} mm`;
             
             // Max UV
@@ -1492,16 +1572,17 @@
             // Wind chart
             windChart = updateMultiLineChart('windChart', windChart, labels,
                 [
-                    { label: 'Wind Speed', data: sampledData.map(d => d.wind_avg_m_s), color: '#a6da95' },
-                    { label: 'Wind Gust', data: sampledData.map(d => d.wind_max_m_s), color: '#f5a97f' }
+                    { label: 'Wind Speed', data: sampledData.map(d => convertMStoKmh(d.wind_avg_m_s)), color: '#a6da95' },
+                    { label: 'Wind Gust', data: sampledData.map(d => convertMStoKmh(d.wind_max_m_s)), color: '#f5a97f' }
                 ],
                 actualChartType,
                 daysDiff
             );
             
             // Rain chart
+            const rainDeltas = calculateRainDeltas(sampledData);
             rainChart = updateChart('rainChart', rainChart, labels,
-                sampledData.map(d => d.rain_mm),
+                rainDeltas,
                 'Rainfall (mm)',
                 '#c6a0f6',
                 actualChartType,
@@ -2035,7 +2116,7 @@ function updateRangeChart(canvasId, chartInstance, labels, highData, lowData, la
         // Get weather icon based on conditions with seasonal adjustments
         function getWeatherIcon(data) {
             const temp = data.temperature_C;
-            const currentRain = data.current_rain_mm || 0; // Use current rain, not daily
+            const currentRain = data.current_rain_mm || 0; // Use cumulative counter value for weather icon detection
             const uv = data.uv;
             const light = data.light_lux;
             const hour = new Date(data.time).getHours();
@@ -2369,9 +2450,10 @@ function updateRangeChart(canvasId, chartInstance, labels, highData, lowData, la
             document.getElementById('stat-low-temp').textContent = `${lowTemp.toFixed(1)}°C`;
             
             // Rainfall
-            const totalRain = rains.reduce((a, b) => a + b, 0);
-            const maxRain = Math.max(...rains);
-            const rainyDays = rains.filter(r => r > 0).length;
+            const totalRain = calculateRainDelta(historyData);
+            const rainDeltas = calculateRainDeltas(historyData);
+            const maxRain = rainDeltas.length > 0 ? Math.max(...rainDeltas) : 0;
+            const rainyDays = rainDeltas.filter(r => r > 0).length;
             
             document.getElementById('stat-total-rain').textContent = `${totalRain.toFixed(1)} mm`;
             document.getElementById('stat-max-rain').textContent = `${maxRain.toFixed(1)} mm`;
@@ -2501,7 +2583,7 @@ function updateRangeChart(canvasId, chartInstance, labels, highData, lowData, la
                     labels: dates,
                     datasets: [{
                         label: 'Rainfall (mm)',
-                        data: rains,
+                        data: calculateRainDeltas(historyData),
                         backgroundColor: 'rgba(125, 196, 228, 0.7)',
                         borderColor: '#7dc4e4',
                         borderWidth: 1
@@ -2769,19 +2851,29 @@ function updateRangeChart(canvasId, chartInstance, labels, highData, lowData, la
         function updateTable() {
             const tbody = document.getElementById('history-table-body');
             tbody.innerHTML = '';
-            
+
+            // Check if we have recent readings (no temperature_high_c) or daily rollups
+            const isRecentData = historyData.length > 0 && historyData[0].temperature_high_c === undefined;
+
             historyData.forEach(reading => {
                 const date = new Date(reading.time);
                 const row = document.createElement('tr');
+
+                // For recent readings, show cumulative counter with note
+                // For daily rollups, rain_mm is already the delta
+                const rainDisplay = isRecentData
+                    ? `${reading.rain_mm.toFixed(1)} <small class="text-muted">(counter)</small>`
+                    : `${reading.rain_mm.toFixed(1)}`;
+
                 row.innerHTML = `
                     <td>${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
                     <td>${reading.temperature_C.toFixed(1)}</td>
                     <td>${(reading.temperature_high_c || reading.temperature_C).toFixed(1)}</td>
                     <td>${(reading.temperature_low_c || reading.temperature_C).toFixed(1)}</td>
                     <td>${reading.humidity}%</td>
-                    <td>${reading.rain_mm.toFixed(1)}</td>
-                    <td>${reading.wind_avg_m_s.toFixed(1)}</td>
-                    <td>${reading.wind_max_m_s.toFixed(1)}</td>
+                    <td>${rainDisplay}</td>
+                    <td>${convertMStoKmh(reading.wind_avg_m_s).toFixed(1)}</td>
+                    <td>${convertMStoKmh(reading.wind_max_m_s).toFixed(1)}</td>
                     <td>${reading.uvi || 0}</td>
                     <td>${reading.light_lux || 0}</td>
                 `;
@@ -2791,7 +2883,7 @@ function updateRangeChart(canvasId, chartInstance, labels, highData, lowData, la
         
         // Export to CSV
         function exportToCSV() {
-            const headers = ['Date', 'Temperature (°C)', 'High (°C)', 'Low (°C)', 'Humidity (%)', 'Rain (mm)', 'Wind (m/s)', 'Gust (m/s)', 'UV', 'Light (lux)'];
+            const headers = ['Date', 'Temperature (°C)', 'High (°C)', 'Low (°C)', 'Humidity (%)', 'Rain (mm)', 'Wind (km/h)', 'Gust (km/h)', 'UV', 'Light (lux)'];
             const rows = historyData.map(reading => {
                 const date = new Date(reading.time);
                 return [
@@ -2801,8 +2893,8 @@ function updateRangeChart(canvasId, chartInstance, labels, highData, lowData, la
                     (reading.temperature_low_c || reading.temperature_C).toFixed(1),
                     reading.humidity,
                     reading.rain_mm.toFixed(1),
-                    reading.wind_avg_m_s.toFixed(1),
-                    reading.wind_max_m_s.toFixed(1),
+                    convertMStoKmh(reading.wind_avg_m_s).toFixed(1),
+                    convertMStoKmh(reading.wind_max_m_s).toFixed(1),
                     reading.uvi || 0,
                     reading.light_lux || 0
                 ];
