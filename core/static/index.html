@@ -1351,7 +1351,8 @@
             if (!readings || readings.length === 0) return 0;
 
             // Check if this is daily rollup data (has temperature_high_c field)
-            if (readings[0].temperature_high_c !== undefined) {
+            // Use 'in' operator to check if field exists (handles 0 values correctly)
+            if (readings[0] && 'temperature_high_c' in readings[0]) {
                 // Daily rollup data - rain_mm is already the delta
                 return readings.reduce((sum, d) => sum + (d.rain_mm || 0), 0);
             }
@@ -1387,7 +1388,8 @@
             if (!readings || readings.length === 0) return [];
 
             // Check if this is daily rollup data
-            if (readings[0].temperature_high_c !== undefined) {
+            // Use 'in' operator to check if field exists (handles 0 values correctly)
+            if (readings[0] && 'temperature_high_c' in readings[0]) {
                 // Daily rollup data - rain_mm is already the delta
                 return readings.map(d => d.rain_mm || 0);
             }
@@ -1499,7 +1501,7 @@
             const daysDiff = hoursDiff / 24;
             
             // Check if we have detailed min/max data (from daily rollups)
-            const hasMinMaxData = sampledData.some(d => d.temperature_high_c !== undefined);
+            const hasMinMaxData = sampledData.some(d => d && 'temperature_high_c' in d);
             
             // Choose appropriate time format for labels
             let labelFormat;
@@ -2869,7 +2871,7 @@ function updateRangeChart(canvasId, chartInstance, labels, highData, lowData, la
             tbody.innerHTML = '';
 
             // Check if we have recent readings (no temperature_high_c) or daily rollups
-            const isRecentData = historyData.length > 0 && historyData[0].temperature_high_c === undefined;
+            const isRecentData = historyData.length > 0 && !(historyData[0] && 'temperature_high_c' in historyData[0]);
 
             historyData.forEach(reading => {
                 const date = new Date(reading.time);

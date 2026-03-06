@@ -107,10 +107,10 @@ func LoggingMiddleware(next http.Handler, enableHTTPLogging bool) http.Handler {
 // DailyRollupReading extends types.Reading with daily rollup fields
 type DailyRollupReading struct {
 	types.Reading
-	TemperatureHighC float64 `json:"temperature_high_c,omitempty"`
-	TemperatureLowC  float64 `json:"temperature_low_c,omitempty"`
-	HumidityHigh     int     `json:"humidity_high,omitempty"`
-	HumidityLow      int     `json:"humidity_low,omitempty"`
+	TemperatureHighC float64 `json:"temperature_high_c"`
+	TemperatureLowC  float64 `json:"temperature_low_c"`
+	HumidityHigh     int     `json:"humidity_high"`
+	HumidityLow      int     `json:"humidity_low"`
 }
 
 // sendJSON sends a JSON response with the given status code
