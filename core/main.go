@@ -103,6 +103,14 @@ func main() {
 			logger.Error("Failed to compute initial daily rollup: %v", err)
 		}
 
+		// Calculate time until next midnight
+		now := time.Now()
+		nextMidnight := now.AddDate(0, 0, 1).Truncate(24 * time.Hour)
+		initialDelay := nextMidnight.Sub(now)
+
+		// Wait until midnight, then run daily
+		time.Sleep(initialDelay)
+
 		// Set up ticker to run daily
 		ticker := time.NewTicker(24 * time.Hour)
 		defer ticker.Stop()
@@ -176,7 +184,7 @@ func main() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	
+
 	if err := httpServer.Shutdown(ctx); err != nil {
 		logger.Error("Failed to shutdown HTTP server: %v", err)
 	}

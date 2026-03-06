@@ -2126,7 +2126,7 @@ function updateRangeChart(canvasId, chartInstance, labels, highData, lowData, la
         function getWeatherIcon(data) {
             const temp = data.temperature_C;
             const currentRain = data.current_rain_mm || 0; // Use cumulative counter value for weather icon detection
-            const uv = data.uv;
+            const uv = data.uvi;
             const light = data.light_lux;
             const hour = new Date(data.time).getHours();
             const month = new Date(data.time).getMonth() + 1; // 1-12
@@ -2201,6 +2201,13 @@ function updateRangeChart(canvasId, chartInstance, labels, highData, lowData, la
         let yearBoundaries = [];
         
         // Tab switching event listeners
+        document.getElementById('current-tab').addEventListener('shown.bs.tab', function() {
+            // Clear year boundaries to prevent history markers from showing on current charts
+            yearBoundaries = [];
+            // Reload current weather data and charts when switching back to current tab
+            loadCurrentWeather();
+        });
+        
         document.getElementById('history-tab').addEventListener('shown.bs.tab', function() {
             initializeYearDropdown();
             updateFilterStatus();
@@ -2446,8 +2453,8 @@ function updateRangeChart(canvasId, chartInstance, labels, highData, lowData, la
             const humiditiesHigh = historyData.map(d => d.humidity_high || d.humidity);
             const humiditiesLow = historyData.map(d => d.humidity_low || d.humidity);
             const rains = historyData.map(d => d.rain_mm);
-            const winds = historyData.map(d => d.wind_speed_m_s);
-            const gusts = historyData.map(d => d.wind_gust_m_s);
+            const winds = historyData.map(d => d.wind_avg_m_s);
+            const gusts = historyData.map(d => d.wind_max_m_s);
             
             // Temperature
             const avgTemp = temps.reduce((a, b) => a + b, 0) / temps.length;
@@ -2895,15 +2902,17 @@ function updateRangeChart(canvasId, chartInstance, labels, highData, lowData, la
             const headers = ['Date', 'Temperature (°C)', 'High (°C)', 'Low (°C)', 'Humidity (%)', 'Rain (mm)', 'Wind (km/h)', 'Gust (km/h)', 'UV', 'Light (lux)'];
             const rows = historyData.map(reading => {
                 const date = new Date(reading.time);
+                // Format date as YYYY-MM-DD to avoid commas
+                const dateStr = date.toISOString().split('T')[0];
                 return [
-                    date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                    dateStr,
                     reading.temperature_C.toFixed(1),
                     (reading.temperature_high_c || reading.temperature_C).toFixed(1),
                     (reading.temperature_low_c || reading.temperature_C).toFixed(1),
                     reading.humidity,
                     reading.rain_mm.toFixed(1),
-                    convertMStoKmh(reading.wind_avg_m_s).toFixed(1),
-                    convertMStoKmh(reading.wind_max_m_s).toFixed(1),
+                    (reading.wind_avg_m_s ? convertMStoKmh(reading.wind_avg_m_s).toFixed(1) : '0'),
+                    (reading.wind_max_m_s ? convertMStoKmh(reading.wind_max_m_s).toFixed(1) : '0'),
                     reading.uvi || 0,
                     reading.light_lux || 0
                 ];
