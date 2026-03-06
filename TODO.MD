@@ -1,5 +1,3 @@
-# Wind direction in dashboard
-
 # Calibration Feature Implementation
 
 ## Overview

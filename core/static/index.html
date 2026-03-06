@@ -1290,7 +1290,7 @@
             document.getElementById('current-rain').textContent = `${data.daily_rain_mm.toFixed(2)} mm`;
             document.getElementById('current-wind-speed').textContent = `${convertMStoKmh(data.wind_avg_m_s).toFixed(1)} km/h`;
             document.getElementById('current-wind-gust').textContent = `${convertMStoKmh(data.wind_max_m_s).toFixed(1)} km/h`;
-            document.getElementById('current-wind-dir').textContent = `${data.wind_dir_deg}°`;
+            document.getElementById('current-wind-dir').textContent = `${convertWindDirectionToCompass(data.wind_dir_deg)} (${data.wind_dir_deg}°)`;
             
             document.getElementById('last-updated').textContent = new Date().toLocaleString();
         }
@@ -1421,6 +1421,15 @@
                 return `${firmwareStr[0]}.${firmwareStr[1]}.${firmwareStr[2]}`;
             }
             return firmwareStr;
+        }
+
+        // Convert wind direction degrees to compass direction (N, NE, NW, E, etc.)
+        function convertWindDirectionToCompass(degrees) {
+            if (degrees === null || degrees === undefined) return '--';
+            
+            const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+            const index = Math.round(degrees / 45) % 8;
+            return directions[index];
         }
 
         // Update statistics
