@@ -97,29 +97,28 @@ func main() {
 
 	// Start daily aggregator goroutine
 	go func() {
-		// Run immediately on startup for yesterday's data
-		yesterday := time.Now().AddDate(0, 0, -1).Truncate(24 * time.Hour)
-		if err := database.ComputeDailyRollup(db, yesterday); err != nil {
-			logger.Error("Failed to compute initial daily rollup: %v", err)
+		// Helper function to run daily rollup with error handling
+		runDailyRollup := func() {
+			yesterday := time.Now().AddDate(0, 0, -1).Truncate(24 * time.Hour)
+			if err := database.ComputeDailyRollup(db, yesterday); err != nil {
+				logger.Error("Failed to compute daily rollup: %v", err)
+			}
 		}
 
+		// Run immediately on startup
+		runDailyRollup()
+
 		// Calculate time until next midnight
-		now := time.Now()
-		nextMidnight := now.AddDate(0, 0, 1).Truncate(24 * time.Hour)
-		initialDelay := nextMidnight.Sub(now)
+		nextMidnight := time.Now().AddDate(0, 0, 1).Truncate(24 * time.Hour)
+		time.Sleep(time.Until(nextMidnight))
 
-		// Wait until midnight, then run daily
-		time.Sleep(initialDelay)
-
-		// Set up ticker to run daily
+		// Run at midnight, then every 24 hours
 		ticker := time.NewTicker(24 * time.Hour)
 		defer ticker.Stop()
 
-		for range ticker.C {
-			previousDay := time.Now().AddDate(0, 0, -1).Truncate(24 * time.Hour)
-			if err := database.ComputeDailyRollup(db, previousDay); err != nil {
-				logger.Error("Failed to compute daily rollup: %v", err)
-			}
+		for {
+			runDailyRollup()
+			<-ticker.C
 		}
 	}()
 
