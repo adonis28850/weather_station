@@ -36,6 +36,7 @@ type CurrentWeatherResponse struct {
 	WindDirDeg    int                           `json:"wind_dir_deg"`
 	CurrentRainMM float64                       `json:"current_rain_mm"` // Rain from latest reading
 	DailyRainMM   float64                       `json:"daily_rain_mm"`   // Total rain for today
+	RainStart     int                           `json:"rain_start"`      // Rain detection status: 1 = raining, 0 = not raining
 	BatteryOK     float64                       `json:"battery"`
 	Firmware      int                           `json:"firmware"`       // Firmware version (e.g., 160 = version 1.6.0)
 	Astronomical  astronomical.AstronomicalData `json:"astronomical"` // Sunrise, sunset, etc.
@@ -273,6 +274,7 @@ func (s *Server) CurrentWeatherHandler(w http.ResponseWriter, r *http.Request) {
 		WindDirDeg:    reader.WindDirDeg,
 		CurrentRainMM: reader.RainMM,
 		DailyRainMM:   dailyRain,
+		RainStart:     reader.RainStart,
 		BatteryOK:     reader.BatteryOK,
 		Firmware:      reader.Firmware,
 		Astronomical:  astronomicalData,

@@ -2127,7 +2127,7 @@ function updateRangeChart(canvasId, chartInstance, labels, highData, lowData, la
         // Get weather icon based on conditions with seasonal adjustments
         function getWeatherIcon(data) {
             const temp = data.temperature_C;
-            const currentRain = data.current_rain_mm || 0; // Use cumulative counter value for weather icon detection
+            const isRaining = data.rain_start === 1; // Check if currently raining (not cumulative counter)
             const uv = data.uvi;
             const light = data.light_lux;
             const hour = new Date(data.time).getHours();
@@ -2148,7 +2148,7 @@ function updateRangeChart(canvasId, chartInstance, labels, highData, lowData, la
             
             
             // Priority: Rain > Frost > Sunny/Cloudy
-            if (currentRain > 0) {
+            if (isRaining) {
                 return 'bi-cloud-rain';
             }
             
