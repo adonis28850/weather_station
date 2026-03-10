@@ -385,3 +385,297 @@ func (s *Server) getCalibratedReadings(startTime, endTime time.Time) ([]types.Re
 - Raw data preservation allows recalibration of historical data
 - Performance impact is negligible on modern hardware
 - Always validate calibration against real rain events when possible
+
+---
+
+# Testing Implementation Plan
+
+## Overview
+Implement comprehensive testing across the weather station project to ensure code quality, catch regressions, and enable safe refactoring.
+
+## Difficulty Assessment
+
+### Easy to Test
+- Go utility functions (validation, conversions, helpers in shared/)
+- Business logic (rain calculations, weather icon logic)
+- Configuration handling
+- Logger functionality
+- JavaScript utility functions (unit conversions, CSV export)
+
+### Medium Difficulty
+- HTTP handlers (need httptest package)
+- Database queries (need test database setup)
+- Worker pool logic
+- API integration tests
+
+### Hard to Test
+- Database functions (compute_daily_rollup requires full PostgreSQL)
+- Async goroutines (daily aggregator, concurrent operations)
+- Frontend E2E (requires browser automation)
+- Full system integration (end-to-end data flow)
+
+## Phase 1: Unit Tests for Shared Utilities
+
+### Target Files
+- `shared/validation/validation.go`
+- `shared/workers/pool.go`
+- `shared/logger/logger.go`
+
+### Test Cases to Implement
+
+**Validation Tests (`shared/validation/validation_test.go`):**
+```go
+func TestValidateReading(t *testing.T) {
+    // Test valid reading
+    // Test invalid temperature (extreme values)
+    // Test invalid humidity (0-100 range)
+    // Test invalid wind speed (negative values)
+    // Test missing required fields
+}
+
+func TestValidateSensorID(t *testing.T) {
+    // Test valid sensor IDs
+    // Test empty sensor ID
+    // Test invalid format
+}
+```
+
+**Worker Pool Tests (`shared/workers/pool_test.go`):**
+```go
+func TestNewWorkerPool(t *testing.T) {
+    // Test pool creation with valid config
+    // Test pool with zero workers
+    // Test pool with negative queue size
+}
+
+func TestPoolSubmit(t *testing.T) {
+    // Test successful task submission
+    // Test pool shutdown
+    // Test queue full scenario
+}
+```
+
+**Logger Tests (`shared/logger/logger_test.go`):**
+```go
+func TestLoggerLevels(t *testing.T) {
+    // Test DEBUG level
+    // Test INFO level
+    // Test ERROR level
+}
+
+func TestLoggerOutput(t *testing.T) {
+    // Test log format
+    // Test log output capture
+}
+```
+
+---
+
+## Phase 2: Handler Tests with httptest
+
+### Target Files
+- `core/handlers/handlers.go`
+
+### Test Cases to Implement
+
+**Current Weather Handler:**
+```go
+func TestCurrentWeatherHandler(t *testing.T) {
+    // Test successful response
+    // Test database error handling
+    // Test missing data scenario
+    // Test JSON response structure
+}
+
+func TestHistoryWeatherHandler(t *testing.T) {
+    // Test year filter
+    // Test month filter
+    // Test date range validation
+    // Test empty result handling
+}
+
+func TestDailyRollupHandler(t *testing.T) {
+    // Test successful rollup
+    // Test invalid date format
+    // Test database error
+}
+```
+
+### Setup Required
+```go
+// Create test server
+func setupTestServer(t *testing.T) (*httptest.Server, *sql.DB) {
+    // Setup mock database
+    // Create test server with handlers
+    // Return server and DB for cleanup
+}
+```
+
+---
+
+## Phase 3: Database Integration Tests
+
+### Target Files
+- `core/database/database.go`
+- `migrations/*.sql`
+
+### Test Cases to Implement
+
+**Database Connection Tests:**
+```go
+func TestDatabaseConnection(t *testing.T) {
+    // Test successful connection
+    // Test connection failure
+    // Test connection pool
+}
+```
+
+**Insert Reading Tests:**
+```go
+func TestInsertReading(t *testing.T) {
+    // Test successful insert
+    // Test duplicate handling
+    // Test NULL values
+    // Test timestamp handling
+}
+```
+
+**Query Tests:**
+```go
+func TestGetRecentReadings(t *testing.T) {
+    // Test limit parameter
+    // Test empty result
+    // Test ordering
+}
+```
+
+**Daily Rollup Function Tests:**
+```go
+func TestComputeDailyRollup(t *testing.T) {
+    // Test with readings (rain_start = 1)
+    // Test with readings (rain_start = 0)
+    // Test with no readings (safeguard)
+    // Test sensor reset handling
+    // Test historical data preservation
+}
+```
+
+### Setup Required
+```go
+// Test database setup
+func setupTestDatabase(t *testing.T) *sql.DB {
+    // Connect to test PostgreSQL instance
+    // Run migrations
+    // Seed test data
+    // Return DB connection
+}
+```
+
+### Test Database Configuration
+```go
+// Use Docker for test database
+docker run -d \
+  --name weather-test-db \
+  -e POSTGRES_DB=weather_station_test \
+  -e POSTGRES_USER=test_user \
+  -e POSTGRES_PASSWORD=test_password \
+  postgres:15
+
+// Or use environment variable
+export TEST_DATABASE_URL="postgres://test_user:test_password@localhost:5433/weather_station_test"
+```
+
+---
+
+## Phase 4: E2E Tests for Critical User Flows
+
+### Target Flows
+
+**1. Data Ingestion Flow:**
+```go
+func TestDataIngestionFlow(t *testing.T) {
+    // Start ingestor
+    // Send mock sensor data
+    // Verify data stored in database
+    // Verify API returns data
+}
+```
+
+**2. Daily Rollup Flow:**
+```go
+func TestDailyRollupFlow(t *testing.T) {
+    // Insert test readings for a day
+    // Trigger daily rollup
+    // Verify daily_weather table updated
+    // Verify historical data preserved
+}
+```
+
+**3. Dashboard Data Display:**
+```go
+func TestDashboardDataDisplay(t *testing.T) {
+    // Seed test data
+    // Start core server
+    // Call current weather API
+    // Verify response structure
+    // Verify rain_start field included
+}
+```
+
+### Frontend E2E Tests (Optional)
+```javascript
+// Using Playwright or Cypress
+describe('Weather Dashboard', () => {
+    test('displays current weather', async () => {
+        // Navigate to dashboard
+        // Verify temperature displayed
+        // Verify wind direction shows compass letters
+        // Verify rain icon only shows when raining
+    });
+
+    test('exports CSV correctly', async () => {
+        // Navigate to history tab
+        // Select date range
+        // Click export button
+        // Verify CSV format and content
+    });
+});
+```
+
+### Setup Required
+```go
+// Test environment setup
+func setupTestEnvironment(t *testing.T) (*sql.DB, *http.Client) {
+    // Start test database
+    // Run migrations
+    // Seed test data
+    // Start test server
+    // Return DB and HTTP client
+}
+```
+
+---
+
+## Testing Infrastructure
+
+### Required Tools
+- Go testing framework (built-in)
+- testify/assert for assertions
+- httptest for HTTP handler tests
+- testcontainers-go for Docker test databases
+- Playwright or Cypress for frontend E2E tests
+
+---
+
+## Best Practices
+
+1. **Start Small**: Begin with easy unit tests to build momentum
+2. **Test Behavior, Not Implementation**: Focus on what code does, not how
+3. **Use Table-Driven Tests**: For multiple test cases with same logic
+4. **Mock External Dependencies**: Database, APIs, file system
+5. **Keep Tests Fast**: Unit tests should run in milliseconds
+6. **Test Edge Cases**: Null values, empty inputs, extreme values
+7. **Use Descriptive Names**: Test names should explain what they test
+8. **Avoid Test Interdependence**: Each test should be independent
+9. **Clean Up Resources**: Close connections, delete temp files
+10. **Run Tests Locally Before Pushing**: Catch issues early
