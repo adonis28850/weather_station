@@ -149,12 +149,13 @@ func TestPoolGetResultChan(t *testing.T) {
 
 		// Verify results are being sent
 		receivedResults := 0
-		for i := 0; i < bufferSize+2; i++ {
+		timeout := false
+		for i := 0; i < bufferSize+2 && !timeout; i++ {
 			select {
 			case <-resultChan:
 				receivedResults++
 			case <-time.After(50 * time.Millisecond):
-				break
+				timeout = true
 			}
 		}
 
