@@ -597,12 +597,16 @@ func (s *Server) calculateRainWithResetDetection(ctx context.Context, start, end
 			continue
 		}
 
-		// Only add positive deltas (ignore resets and decreases)
-		if prevRain > 0 && rainMM > prevRain {
+		// Detect sensor reset (rain decreases)
+		if rainMM < prevRain {
+			// Sensor reset detected, reset tracking
+			prevRain = 0
+			totalRain = 0
+		} else if rainMM > prevRain {
+			// Only add positive deltas
 			totalRain += (rainMM - prevRain)
+			prevRain = rainMM
 		}
-
-		prevRain = rainMM
 	}
 
 	return totalRain
