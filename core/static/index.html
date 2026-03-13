@@ -2132,7 +2132,7 @@ function updateRangeChart(canvasId, chartInstance, labels, highData, lowData, la
             const light = data.light_lux;
             const hour = new Date(data.time).getHours();
             const month = new Date(data.time).getMonth() + 1; // 1-12
-            
+
             // Determine day/night using actual sunrise/sunset
             let isNight = false;
             if (data.astronomical && data.astronomical.sunrise && data.astronomical.sunset) {
@@ -2145,8 +2145,8 @@ function updateRangeChart(canvasId, chartInstance, labels, highData, lowData, la
                 // Fallback: use time-based detection
                 isNight = hour >= 20 || hour < 6;
             }
-            
-            
+
+
             // Priority: Rain > Frost > Sunny/Cloudy
             if (isRaining) {
                 return 'bi-cloud-rain';

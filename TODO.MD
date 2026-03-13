@@ -657,9 +657,13 @@ func setupTestServer(t *testing.T) (*httptest.Server, *sql.DB) {
 ```
 
 **Phase 2 Summary:** COMPLETED
-- 29 tests implemented covering all handlers
+- 36 tests implemented covering all handlers
 - Tests use httptest for HTTP testing
-- All tests passing with 75.8% coverage
+- All tests passing with 77.4% coverage
+- Added comprehensive tests for rain detection functionality:
+  - TestIsCurrentlyRaining (5 subtests): Tests rain detection based on 5-minute window
+  - TestCurrentWeatherHandler additions (2 subtests): Tests RainStart calculation integration
+- Rain detection logic correctly handles sensor resets and 0.1mm threshold
 
 ---
 

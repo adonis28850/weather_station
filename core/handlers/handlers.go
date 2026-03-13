@@ -36,7 +36,7 @@ type CurrentWeatherResponse struct {
 	WindDirDeg    int                           `json:"wind_dir_deg"`
 	CurrentRainMM float64                       `json:"current_rain_mm"` // Rain from latest reading
 	DailyRainMM   float64                       `json:"daily_rain_mm"`   // Total rain for today
-	RainStart     int                           `json:"rain_start"`      // Rain detection status: 1 = raining, 0 = not raining
+	RainStart     int                           `json:"rain_start"`      // Calculated: 1 = currently raining (rain in last 5 min), 0 = not raining
 	BatteryOK     float64                       `json:"battery"`
 	Firmware      int                           `json:"firmware"`       // Firmware version (e.g., 160 = version 1.6.0)
 	Astronomical  astronomical.AstronomicalData `json:"astronomical"` // Sunrise, sunset, etc.
@@ -261,6 +261,11 @@ func (s *Server) CurrentWeatherHandler(w http.ResponseWriter, r *http.Request) {
 	astronomicalData := s.cachedAstronomical
 	s.astronomicalMutex.RUnlock()
 
+	// Calculate if it's currently raining based on recent rain activity
+	ctx, cancel = context.WithTimeout(context.Background(), QueryTimeout)
+	defer cancel()
+	currentlyRaining := s.isCurrentlyRaining(ctx)
+
 	response := CurrentWeatherResponse{
 		Time:          timestamp.Format(time.RFC3339Nano),
 		Model:         reader.Model,
@@ -274,7 +279,7 @@ func (s *Server) CurrentWeatherHandler(w http.ResponseWriter, r *http.Request) {
 		WindDirDeg:    reader.WindDirDeg,
 		CurrentRainMM: reader.RainMM,
 		DailyRainMM:   dailyRain,
-		RainStart:     reader.RainStart,
+		RainStart:     currentlyRaining,
 		BatteryOK:     reader.BatteryOK,
 		Firmware:      reader.Firmware,
 		Astronomical:  astronomicalData,
@@ -610,4 +615,61 @@ func (s *Server) calculateRainWithResetDetection(ctx context.Context, start, end
 	}
 
 	return totalRain
+}
+
+// isCurrentlyRaining calculates whether it's currently raining based on recent rain activity
+// Returns 1 if there has been rain in the last 5 minutes, 0 otherwise
+func (s *Server) isCurrentlyRaining(ctx context.Context) int {
+	fiveMinutesAgo := time.Now().Add(-5 * time.Minute)
+
+	query := `SELECT rain_mm FROM readings WHERE timestamp >= $1 ORDER BY timestamp ASC`
+
+	rows, err := s.db.QueryContext(ctx, query, fiveMinutesAgo)
+	if err != nil {
+		logger.Error("Failed to query recent rain readings: %v", err)
+		return 0
+	}
+	defer rows.Close()
+
+	var rainValues []float64
+	for rows.Next() {
+		var rainMM float64
+		if err := rows.Scan(&rainMM); err != nil {
+			logger.Error("Failed to scan rain reading: %v", err)
+			continue
+		}
+		rainValues = append(rainValues, rainMM)
+	}
+
+	// If we have fewer than 2 readings, can't determine if it's raining
+	if len(rainValues) < 2 {
+		return 0
+	}
+
+	// Calculate total rain delta in the last 5 minutes
+	// Handle sensor resets
+	var totalRain float64
+	// Initialize prevRain with the first value to only count increases from the starting point
+	prevRain := rainValues[0]
+
+	for _, rainMM := range rainValues {
+		// Detect sensor reset (rain decreases)
+		if rainMM < prevRain {
+			// Sensor reset detected, reset tracking
+			prevRain = rainMM
+			totalRain = 0
+		} else if rainMM > prevRain {
+			// Only add positive deltas
+			totalRain += (rainMM - prevRain)
+			prevRain = rainMM
+		}
+	}
+
+	// If we've seen any rain in the last 5 minutes, it's currently raining
+	// Use a small threshold (0.1 mm) to avoid false positives from sensor noise
+	if totalRain > 0.1 {
+		return 1
+	}
+
+	return 0
 }
