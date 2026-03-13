@@ -833,3 +833,389 @@ func setupTestEnvironment(t *testing.T) (*sql.DB, *http.Client) {
 8. **Avoid Test Interdependence**: Each test should be independent
 9. **Clean Up Resources**: Close connections, delete temp files
 10. **Run Tests Locally Before Pushing**: Catch issues early
+
+---
+
+# MeteoClimatic Integration
+
+## Overview
+Implement a module to send weather data from the WS90 ingestor to MeteoClimatic (https://wiki.meteoclimatic.net/wiki/P%c3%a1gina_principal), allowing users to optionally share their weather station data with the MeteoClimatic network.
+
+## MeteoClimatic API Overview
+
+MeteoClimatic supports **three protocols** for data submission:
+
+1. **Ecowitt Protocol** - Used by Fine Offset devices (including WS90)
+2. **Wunderground Protocol** - Used by various station brands
+3. **WeatherLink Live Protocol** - Used by Davis stations
+
+## Recommended Approach: Wunderground Protocol
+
+Use the **Wunderground Protocol** for MeteoClimatic integration. This protocol is well-documented, widely supported, and provides all the necessary fields for weather data submission.
+
+## Prerequisites
+
+1. **Register your station** at MeteoClimatic (https://www.meteoclimatic.net)
+2. **Obtain credentials** from your station profile:
+   - Station Code (e.g., `ESMAD2800000028576Z`)
+   - API Key (e.g., `xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`)
+3. **Configure timezone** to UTC (important for daily rain accumulation)
+4. **Verify altitude** in your station profile (used for pressure calculations)
+
+## API Configuration Helper
+
+Use https://api.m11c.net/ to generate the exact API endpoint and parameters for your station:
+1. Select "Protocolo de envío" → "Wunderground"
+2. Enter your Station Code
+3. Enter your API Key
+4. Enter Pressure Offset (or use *W to use station's pressure)
+5. The tool will generate the exact endpoint URL and parameters
+
+## Data Submission Format
+
+Based on the Wunderground protocol, send HTTP **GET** requests with query parameters:
+
+**Example URL:**
+```
+https://api.m11c.net/v2/wu?ID=ESMAD2800000028576Z*W&PASSWORD=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&tempf=75.0&windspeedmph=5.5&winddir=180&baromin=29.92&absbaromin=29.95&humidity=55&solarradiation=500&UV=5&dailyrainin=0.00&monthlyrainin=2.50&yearlyrainin=15.75&softwaretype=weather_station_ingestor
+```
+
+**Protocol Details:**
+- **HTTP Method:** GET
+- **Endpoint:** `https://api.m11c.net/v2/wu`
+- **Data Format:** Query parameters (URL-encoded)
+- **Authentication:** ID and PASSWORD parameters
+
+## Required Parameters
+
+**Authentication:**
+- `ID` (string) - Station code with optional pressure offset
+  - Format: `STATIONCODE*OFFSET` or `STATIONCODE*W`
+  - Example: `ESMAD2800000028576Z*W` (use station's pressure)
+  - Example: `ESMAD2800000028576Z*70` (subtract 70 hPa from relative pressure)
+- `PASSWORD` (string) - API key from MeteoClimatic
+
+**Mandatory Weather Data:**
+- `tempf` (float) - Outdoor temperature in Fahrenheit
+- `humidity` (int) - Outdoor humidity percentage (0-100)
+- `dateutc` (string) - Timestamp in UTC (format: "YYYY-MM-DD HH:MM:SS")
+
+**Optional but Recommended:**
+- `windspeedmph` (float) - Wind speed in mph
+- `winddir` (int) - Wind direction in degrees (0-360)
+- `baromin` (float) - Barometric pressure in inches of mercury (relative)
+- `absbaromin` (float) - Absolute barometric pressure in inches of mercury
+- `dailyrainin` (float) - Daily rain in inches
+- `softwaretype` (string) - Software name/type identifier
+
+## Extended Parameters (Ecowitt Extensions)
+
+MeteoClimatic supports additional parameters beyond standard Wunderground:
+
+**Solar & UV:**
+- `solarradiation` (float) - Solar radiation (W/m²)
+- `UV` (int) - UV index
+
+**Rain Totals:**
+- `monthlyrainin` (float) - Monthly rain in inches
+- `yearlyrainin` (float) - Yearly rain in inches
+
+**Additional Rain:**
+- `rainratein` (float) - Rain rate in inches/hour
+- `hourlyrainin` (float) - Hourly rain in inches
+
+**Wind:**
+- `windgustmph` (float) - Wind gust in mph
+
+**Temperature:**
+- `dewptf` (float) - Dew point in Fahrenheit
+
+## Field Comparison: Reading Struct vs Wunderground Protocol
+
+### Fields Available in Reading Struct ✅
+
+| Reading Field | Wunderground Field | Type | Notes |
+|---------------|-------------------|------|-------|
+| `TemperatureC` | `tempf` | float (°F) | ✅ Available, needs °C → °F conversion |
+| `Humidity` | `humidity` | int (%) | ✅ Direct match |
+| `WindSpeedMS` | `windspeedmph` | float (mph) | ✅ Available, needs m/s → mph conversion |
+| `WindDirDeg` | `winddir` | int (degrees) | ✅ Direct match |
+| `RainMM` | `dailyrainin` | float (inches) | ✅ Available, needs mm → inches conversion |
+| `UVIndex` | `UV` | int | ✅ Direct match |
+| `Lux` | `solarradiation` | float (W/m²) | ✅ Available, needs lux → W/m² conversion |
+| `Time` | `dateutc` | string | ✅ Available, needs format conversion |
+
+### Missing from Reading Struct ❌
+
+| Wunderground Field | Type | Status | Priority |
+|--------------------|------|--------|----------|
+| `absbaromin` | float (inches) | ❌ **MISSING** | **CRITICAL** - Required for MeteoClimatic (absolute pressure) |
+| `monthlyrainin` | float (inches) | ❌ Missing | Optional - Monthly rain total |
+| `yearlyrainin` | float (inches) | ❌ Missing | Optional - Yearly rain total |
+| `windgustmph` | float (mph) | ❌ Missing | Optional - Wind gust |
+| `rainratein` | float (inches/hour) | ❌ Missing | Optional - Rain rate |
+| `hourlyrainin` | float (inches) | ❌ Missing | Optional - Hourly rain |
+| `dewptf` | float (°F) | ❌ Missing | Optional - Dew point |
+
+**Note:** MeteoClimatic PREFERS absolute pressure (`absbaromin`) and will calculate relative pressure itself based on altitude and temperature. Do NOT send `baromin` unless you have a specific reason.
+
+### Additional Fields in Reading (Not Used by Wunderground)
+
+- `Model` - Not needed
+- `SensorID` - Not needed
+- `RainStart` - Not needed (used for local dew filtering only)
+- `BatteryOK` - Not needed
+- `Firmware` - Not needed
+- `WindGustMS` - Not directly used (would convert to `windgustmph`)
+
+## Critical Issue: Missing Barometric Pressure
+
+**The WS90 Reading struct does NOT include barometric pressure**, which is a **required field** for MeteoClimatic submission.
+
+## Solution: Open-Meteo API for Barometric Pressure
+
+### MeteoClimatic Pressure Requirements
+
+**MeteoClimatic PREFERS absolute pressure** and will calculate relative pressure itself based on:
+- Absolute pressure from the sensor
+- Station altitude (configured in MeteoClimatic profile)
+- Outdoor temperature
+
+From the documentation: "MeteoClimatic calcula la presión atmosférica correcta para cada estación en función de la presión absoluta registrada por el sensor de la consola, la altitud de la consola y la temperatura exterior"
+
+**Important:** Absolute pressure values should NOT be altered with calibration constants or offsets.
+
+### Recommended Approach: Use Open-Meteo API
+
+Fetch absolute barometric pressure from Open-Meteo API based on your coordinates:
+
+**API Details:**
+- **Free API**: No API key required
+- **Endpoint:** `https://api.open-meteo.com/v1/forecast`
+- **Parameters:** `latitude`, `longitude`, `current=surface_pressure`
+- **Response:** Returns absolute surface pressure in hPa
+
+**Example Request:**
+```
+GET https://api.open-meteo.com/v1/forecast?latitude=42.0625&longitude=-7.6875&current=surface_pressure
+```
+
+**Example Response:**
+```json
+{
+  "current": {
+    "time": "2026-03-13T22:15",
+    "interval": 900,
+    "surface_pressure": 985.9
+  }
+}
+```
+
+**Implementation:**
+```go
+// Returns absolute pressure in inches of mercury
+func fetchPressureFromAPI(lat, lon float64) (absolute float64, err error) {
+    url := fmt.Sprintf("https://api.open-meteo.com/v1/forecast?latitude=%.6f&longitude=%.6f&current=surface_pressure", lat, lon)
+    resp, err := http.Get(url)
+    if err != nil {
+        return 0, err
+    }
+    defer resp.Body.Close()
+    
+    var result struct {
+        Current struct {
+            SurfacePressure float64 `json:"surface_pressure"`
+        } `json:"current"`
+    }
+    
+    if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+        return 0, err
+    }
+    
+    // Convert hPa to inches of mercury (1 hPa = 0.02953 inHg)
+    // Example: 985.9 hPa * 0.02953 = 29.10 inHg
+    absolute = result.Current.SurfacePressure * 0.02953
+    
+    return absolute, nil
+}
+```
+
+### ID Field Configuration
+
+Use `*W` in the ID field to let MeteoClimatic calculate relative pressure from absolute pressure:
+- **ID Format**: `STATIONCODE*W`
+- **Example**: `ESMAD2800000028576Z*W`
+- **Effect**: MeteoClimatic will use the absolute pressure you send and calculate relative pressure based on altitude
+
+**Alternative**: If you know your pressure offset, use `*OFFSET`:
+- **ID Format**: `STATIONCODE*OFFSET`
+- **Example**: `ESMAD2800000028576Z*70` (subtract 70 hPa from relative to calculate absolute)
+
+## Implementation Strategy for Ingestor
+
+### 1. Add New Module
+
+Create `ingestor/meteoclimatic.go` with:
+- Function to transform Reading struct to Wunderground protocol format
+- Function to send HTTP GET request to MeteoClimatic API endpoint
+- Error handling and retry logic
+- Pressure fetching from Open-Meteo API
+- Rain totals tracking (monthly, yearly)
+- **Rate limiter to enforce 60-second minimum interval between submissions**
+
+### 2. Configuration
+
+Add to config structure:
+```go
+type Config struct {
+    // MeteoClimatic integration
+    MeteoClimaticEnabled bool
+    MeteoClimaticStationCode string
+    MeteoClimaticAPIKey string
+    MeteoClimaticLatitude float64
+    MeteoClimaticLongitude float64
+    MeteoClimaticPressureSource string // "api" or "calculated"
+    MeteoClimaticAltitude float64 // For calculated pressure fallback
+    MeteoClimaticSoftwareType string // e.g., "weather_station_ingestor"
+    MeteoClimaticUpdateInterval time.Duration // Minimum interval between submissions (default: 60 seconds)
+}
+```
+
+### 3. Integration Point
+
+In `ingestor/main.go`, after processing a reading:
+```go
+if config.MeteoClimaticEnabled {
+    go meteoclimatic.SendReading(reading, config)
+}
+```
+
+**IMPORTANT**: Implement rate limiting to ensure data is only sent to MeteoClimatic every 60 seconds minimum. Do not send data more frequently than this.
+
+### 4. Data Mapping
+
+```go
+func transformReadingToWunderground(reading types.Reading, absolutePressure float64, monthlyRain, yearlyRain float64) string {
+    // Build query parameters
+    params := url.Values{}
+    
+    // Authentication
+    params.Add("ID", config.MeteoclimaticStationCode + "*W") // Use *W to let MeteoClimatic calculate relative pressure
+    params.Add("PASSWORD", config.MeteoclimaticAPIKey)
+    
+    // Mandatory fields
+    tempf := reading.TemperatureC * 9/5 + 32
+    params.Add("tempf", fmt.Sprintf("%.1f", tempf))
+    params.Add("humidity", fmt.Sprintf("%d", reading.Humidity))
+    
+    // Format timestamp as YYYY-MM-DD HH:MM:SS
+    params.Add("dateutc", reading.Time)
+    
+    // Optional fields
+    if reading.WindSpeedMS > 0 {
+        windspeedmph := reading.WindSpeedMS * 2.23694 // m/s to mph
+        params.Add("windspeedmph", fmt.Sprintf("%.1f", windspeedmph))
+    }
+    
+    if reading.WindDirDeg >= 0 {
+        params.Add("winddir", fmt.Sprintf("%d", reading.WindDirDeg))
+    }
+    
+    // Send absolute pressure (MeteoClimatic will calculate relative pressure)
+    if absolutePressure > 0 {
+        params.Add("absbaromin", fmt.Sprintf("%.2f", absolutePressure))
+    }
+    
+    if reading.RainMM > 0 {
+        dailyrainin := reading.RainMM * 0.0393701 // mm to inches
+        params.Add("dailyrainin", fmt.Sprintf("%.2f", dailyrainin))
+    }
+    
+    if reading.UVIndex > 0 {
+        params.Add("UV", fmt.Sprintf("%.1f", reading.UVIndex))
+    }
+    
+    if reading.Lux > 0 {
+        // Convert lux to W/m² (approximate: 1 lux ≈ 0.0079 W/m² for solar radiation)
+        solarradiation := reading.Lux * 0.0079
+        params.Add("solarradiation", fmt.Sprintf("%.0f", solarradiation))
+    }
+    
+    if monthlyRain > 0 {
+        params.Add("monthlyrainin", fmt.Sprintf("%.2f", monthlyRain))
+    }
+    
+    if yearlyRain > 0 {
+        params.Add("yearlyrainin", fmt.Sprintf("%.2f", yearlyRain))
+    }
+    
+    params.Add("softwaretype", config.MeteoclimaticSoftwareType)
+    
+    return fmt.Sprintf("https://api.m11c.net/v2/wu?%s", params.Encode())
+}
+```
+
+### 5. Rain Totals Tracking
+
+Since Wunderground protocol requires monthly and yearly rain totals, implement a tracking mechanism:
+
+```go
+type RainTotals struct {
+    Monthly float64
+    Yearly float64
+    LastUpdate time.Time
+    CurrentMonth int
+    CurrentYear int
+}
+
+func (r *RainTotals) Update(reading types.Reading) {
+    now := time.Now()
+    
+    // Reset monthly total if month changed
+    if now.Month() != r.CurrentMonth || now.Year() != r.CurrentYear {
+        r.Monthly = 0
+        r.CurrentMonth = int(now.Month())
+        r.CurrentYear = now.Year()
+    }
+    
+    // Add rain to totals (convert mm to inches)
+    rainInches := reading.RainMM * 0.0393701
+    r.Monthly += rainInches
+    r.Yearly += rainInches
+    r.LastUpdate = now
+}
+```
+
+## Key Considerations
+
+### Unit Conversions
+- Temperature: °C → °F (multiply by 9/5, add 32)
+- Wind Speed: m/s → mph (multiply by 2.23694)
+- Rain: mm → inches (multiply by 0.0393701)
+- Pressure: hPa → inches of mercury (multiply by 0.02953)
+- Solar Radiation: lux → W/m² (multiply by 0.0079, approximate)
+
+### Data Quality
+- Use `*W` in ID field to let MeteoClimatic calculate pressure from altitude
+- Or use `*OFFSET` with known pressure offset if you have it
+- Skip optional fields if data is unavailable (don't send zeros)
+- Always send mandatory fields (tempf, humidity, dateutc)
+
+### Error Handling
+- Implement retry logic for network failures (3-5 retries with exponential backoff)
+- Log failed submissions for manual review
+- Don't block local storage if MeteoClimatic fails
+- Handle HTTP errors gracefully (4xx, 5xx responses)
+
+### Rate Limiting
+- **IMPORTANT**: Only send data to MeteoClimatic every 60 seconds minimum
+- Do not send data more frequently than every 60 seconds
+- Implement a rate limiter or timer to enforce 60-second minimum interval
+- Consider batching if sending historical data (but still respect 60-second interval between batches)
+- Violating rate limits may result in data rejection or IP blocking
+
+### Performance
+- Send data asynchronously (goroutine)
+- Cache pressure data for 5-10 minutes to reduce API calls
+- Implement timeout for HTTP requests (10-30 seconds)
+- Track rain totals in memory (or database for persistence)
