@@ -1435,3 +1435,166 @@ func TestLoggingMiddleware(t *testing.T) {
 		}
 	})
 }
+
+// TestRTL433VersionHandler tests the rtl_433 version handler
+func TestRTL433VersionHandler(t *testing.T) {
+	db, err := sql.Open("postgres", "host=127.0.0.1 port=5432 user=postgres password=postgres dbname=weather_station sslmode=disable")
+	if err != nil {
+		t.Skip("PostgreSQL not available for testing")
+		return
+	}
+	defer db.Close()
+
+	// Ping to verify connection
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := db.PingContext(ctx); err != nil {
+		t.Skipf("PostgreSQL database not available: %v", err)
+		return
+	}
+
+	server := NewServer(db, config.Config{})
+
+	// Test 1: Valid version
+	t.Run("ValidVersion", func(t *testing.T) {
+		requestBody := map[string]string{
+			"version": "rtl_433 version 24.10",
+		}
+		jsonBody, _ := json.Marshal(requestBody)
+
+		req := httptest.NewRequest(http.MethodPost, "/api/system/rtl433-version", bytes.NewBuffer(jsonBody))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		server.RTL433VersionHandler(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
+		}
+
+		var response map[string]string
+		json.Unmarshal(w.Body.Bytes(), &response)
+		if response["status"] != "success" {
+			t.Errorf("Expected status 'success', got '%v'", response["status"])
+		}
+
+		// Verify version was stored
+		server.rtl433VersionMutex.RLock()
+		version := server.rtl433Version
+		server.rtl433VersionMutex.RUnlock()
+
+		if version != "rtl_433 version 24.10" {
+			t.Errorf("Expected version 'rtl_433 version 24.10', got '%s'", version)
+		}
+	})
+
+	// Test 2: Empty version
+	t.Run("EmptyVersion", func(t *testing.T) {
+		requestBody := map[string]string{
+			"version": "",
+		}
+		jsonBody, _ := json.Marshal(requestBody)
+
+		req := httptest.NewRequest(http.MethodPost, "/api/system/rtl433-version", bytes.NewBuffer(jsonBody))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		server.RTL433VersionHandler(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
+		}
+	})
+
+	// Test 3: Invalid JSON
+	t.Run("InvalidJSON", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/api/system/rtl433-version", bytes.NewBuffer([]byte("invalid json")))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		server.RTL433VersionHandler(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
+		}
+	})
+
+	// Test 4: Missing version field
+	t.Run("MissingVersionField", func(t *testing.T) {
+		requestBody := map[string]string{}
+		jsonBody, _ := json.Marshal(requestBody)
+
+		req := httptest.NewRequest(http.MethodPost, "/api/system/rtl433-version", bytes.NewBuffer(jsonBody))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		server.RTL433VersionHandler(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
+		}
+	})
+}
+
+// TestSystemInfoHandler tests the system info handler
+func TestSystemInfoHandler(t *testing.T) {
+	db, err := sql.Open("postgres", "host=127.0.0.1 port=5432 user=postgres password=postgres dbname=weather_station sslmode=disable")
+	if err != nil {
+		t.Skip("PostgreSQL not available for testing")
+		return
+	}
+	defer db.Close()
+
+	// Ping to verify connection
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := db.PingContext(ctx); err != nil {
+		t.Skipf("PostgreSQL database not available: %v", err)
+		return
+	}
+
+	server := NewServer(db, config.Config{})
+
+	// Test 1: No version set
+	t.Run("NoVersionSet", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/system/info", nil)
+		w := httptest.NewRecorder()
+
+		server.SystemInfoHandler(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
+		}
+
+		var response map[string]string
+		json.Unmarshal(w.Body.Bytes(), &response)
+
+		if response["rtl_433_version"] != "" {
+			t.Errorf("Expected empty rtl_433_version, got '%s'", response["rtl_433_version"])
+		}
+	})
+
+	// Test 2: Version set
+	t.Run("VersionSet", func(t *testing.T) {
+		// Set a version
+		server.rtl433VersionMutex.Lock()
+		server.rtl433Version = "rtl_433 version 24.10"
+		server.rtl433VersionMutex.Unlock()
+
+		req := httptest.NewRequest(http.MethodGet, "/api/system/info", nil)
+		w := httptest.NewRecorder()
+
+		server.SystemInfoHandler(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
+		}
+
+		var response map[string]string
+		json.Unmarshal(w.Body.Bytes(), &response)
+
+		if response["rtl_433_version"] != "rtl_433 version 24.10" {
+			t.Errorf("Expected rtl_433_version 'rtl_433 version 24.10', got '%s'", response["rtl_433_version"])
+		}
+	})
+}

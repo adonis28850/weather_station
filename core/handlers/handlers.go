@@ -38,7 +38,7 @@ type CurrentWeatherResponse struct {
 	DailyRainMM   float64                       `json:"daily_rain_mm"`   // Total rain for today
 	RainStart     int                           `json:"rain_start"`      // Calculated: 1 = currently raining (rain in last 5 min), 0 = not raining
 	BatteryOK     float64                       `json:"battery"`
-	Firmware      int                           `json:"firmware"`       // Firmware version (e.g., 160 = version 1.6.0)
+	Firmware      int                           `json:"firmware"`     // Firmware version (e.g., 160 = version 1.6.0)
 	Astronomical  astronomical.AstronomicalData `json:"astronomical"` // Sunrise, sunset, etc.
 	Latitude      float64                       `json:"latitude"`     // Station latitude
 	Longitude     float64                       `json:"longitude"`    // Station longitude
@@ -68,6 +68,8 @@ type Server struct {
 	config             config.Config
 	cachedAstronomical astronomical.AstronomicalData
 	astronomicalMutex  sync.RWMutex
+	rtl433Version      string
+	rtl433VersionMutex sync.RWMutex
 }
 
 // NewServer creates a new HTTP server instance
@@ -367,7 +369,7 @@ func (s *Server) HistoryWeatherHandler(w http.ResponseWriter, r *http.Request) {
 		if rollup.UVMax.Valid {
 			uvIndex = rollup.UVMax.Float64
 		}
-		
+
 		var lux float64
 		if rollup.LightMax.Valid {
 			lux = float64(rollup.LightMax.Int64)
@@ -566,6 +568,49 @@ func (s *Server) HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":  "healthy",
 		"message": "Service is running",
+	})
+}
+
+// RTL433VersionHandler accepts the rtl_433 version from the ingestor
+func (s *Server) RTL433VersionHandler(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		Version string `json:"version"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		logger.Error("Failed to decode rtl_433 version request: %v", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if request.Version == "" {
+		http.Error(w, "Version is required", http.StatusBadRequest)
+		return
+	}
+
+	s.rtl433VersionMutex.Lock()
+	s.rtl433Version = request.Version
+	s.rtl433VersionMutex.Unlock()
+
+	logger.Info("Updated rtl_433 version: %s", request.Version)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"status": "success",
+	})
+}
+
+// SystemInfoHandler returns rtl_433 version
+func (s *Server) SystemInfoHandler(w http.ResponseWriter, r *http.Request) {
+	s.rtl433VersionMutex.RLock()
+	version := s.rtl433Version
+	s.rtl433VersionMutex.RUnlock()
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"rtl_433_version": version,
 	})
 }
 

@@ -422,6 +422,7 @@
                             <h1 id="current-temp">--°C</h1>
                             <p id="current-model">--</p>
                             <p id="current-firmware" class="small">--</p>
+                            <p id="current-rtl433-version" class="small">--</p>
                         </div>
                         <div class="col-md-4 text-center">
                             <div id="weather-icon" class="weather-icon-large">
@@ -1218,6 +1219,18 @@
             document.getElementById('current-temp').textContent = `${data.temperature_C.toFixed(1)}°C`;
             document.getElementById('current-model').textContent = data.model;
             document.getElementById('current-firmware').textContent = `Firmware: ${convertFirmware(data.firmware)}`;
+            
+            // Fetch and display rtl_433 version
+            fetch('/api/system/info')
+                .then(response => response.json())
+                .then(systemData => {
+                    if (systemData.rtl_433_version) {
+                        document.getElementById('current-rtl433-version').textContent = `rtl_433: ${systemData.rtl_433_version}`;
+                    }
+                })
+                .catch(error => {
+                    console.error('Failed to fetch rtl_433 version:', error);
+                });
             
             // Location coordinates
             if (data.latitude !== undefined && data.longitude !== undefined) {

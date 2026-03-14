@@ -3,12 +3,14 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -231,12 +233,113 @@ func processStdout(scanner *bufio.Scanner, jobQueue chan<- Job) {
 	}
 }
 
+// sendRTL433Version reads the rtl_433 version and sends it to the core API
+func sendRTL433Version(coreURL string, timeout time.Duration) error {
+	cmd := exec.Command("rtl_433", "-V")
+	
+	// Set up a timeout context to prevent hanging
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	
+	cmd = exec.CommandContext(ctx, "rtl_433", "-V")
+	output, err := cmd.CombinedOutput()
+
+	// Check if the command timed out
+	if ctx.Err() == context.DeadlineExceeded {
+		logger.Error("rtl_433 -V timed out after 5 seconds, skipping version check")
+		return nil // Return nil error to allow ingestor to start
+	}
+
+	// rtl_433 -V outputs version info to stdout
+	// Extract version from the first line: "rtl_433 version 25.12 (2025-12-12) inputs ..."
+	lines := strings.Split(string(output), "\n")
+	if len(lines) == 0 {
+		logger.Error("rtl_433 -V returned no output: %v", err)
+		return nil // Return nil error to allow ingestor to start
+	}
+
+	// Parse the first line to extract version
+	// Format: "rtl_433 version 25.12 (2025-12-12) inputs file rtl_tcp RTL-SDR SoapySDR"
+	firstLine := strings.TrimSpace(lines[0])
+	version := ""
+	
+	// Use regex to extract version string (e.g., "25.12 (2025-12-12)")
+	re := regexp.MustCompile(`rtl_433 version ([\d.]+ \(\d{4}-\d{2}-\d{2}\))`)
+	matches := re.FindStringSubmatch(firstLine)
+	if len(matches) > 1 {
+		version = matches[1]
+	} else {
+		// Fallback: extract just the version number
+		reNum := regexp.MustCompile(`rtl_433 version ([\d.]+)`)
+		matchesNum := reNum.FindStringSubmatch(firstLine)
+		if len(matchesNum) > 1 {
+			version = matchesNum[1]
+		} else {
+			version = firstLine // Use full line if parsing fails
+		}
+	}
+
+	if version == "" {
+		logger.Error("failed to parse rtl_433 version from output: %v", err)
+		return nil // Return nil error to allow ingestor to start
+	}
+
+	requestBody := map[string]string{
+		"version": version,
+	}
+	jsonBody, err := json.Marshal(requestBody)
+	if err != nil {
+		return fmt.Errorf("failed to marshal version request: %w", err)
+	}
+
+	client := &http.Client{
+		Timeout: timeout,
+	}
+
+	// Construct the system info URL by replacing /api/ingest with /api/system/rtl433-version
+	systemInfoURL := strings.Replace(coreURL, "/api/ingest", "/api/system/rtl433-version", 1)
+
+	// Add retry logic for version sending (similar to workers)
+	for attempt := 1; attempt <= 3; attempt++ {
+		resp, err := client.Post(systemInfoURL, "application/json", bytes.NewBuffer(jsonBody))
+		if err != nil {
+			if attempt < 3 {
+				logger.Info("Retrying rtl_433 version send... (attempt %d/3)", attempt)
+				time.Sleep(2 * time.Second)
+				continue
+			}
+			return fmt.Errorf("failed to send version to core after 3 attempts: %w", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			if attempt < 3 {
+				logger.Info("Core returned status %d, retrying... (attempt %d/3)", resp.StatusCode, attempt)
+				time.Sleep(2 * time.Second)
+				continue
+			}
+			return fmt.Errorf("core returned status %d after 3 attempts", resp.StatusCode)
+		}
+
+		// Success
+		logger.Info("Successfully sent rtl_433 version to core: %s", version)
+		return nil
+	}
+
+	return fmt.Errorf("failed to send rtl_433 version to core")
+}
+
 // main is the entry point for the ingestor application
 func main() {
 	config, err := loadConfig()
 	if err != nil {
 		logger.Error("Failed to load configuration: %v", err)
 		os.Exit(1)
+	}
+
+	// Send rtl_433 version to core at startup
+	if err := sendRTL433Version(config.url, config.timeout); err != nil {
+		logger.Error("Failed to send rtl_433 version to core: %v", err)
 	}
 
 	client := &http.Client{

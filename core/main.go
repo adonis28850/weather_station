@@ -79,6 +79,8 @@ func main() {
 	http.HandleFunc("/api/weather/history", handlers.MethodCheck(http.MethodGet, server.HistoryWeatherHandler))
 	http.HandleFunc("/api/weather/years", handlers.MethodCheck(http.MethodGet, server.AvailableYearsHandler))
 	http.HandleFunc("/health", handlers.MethodCheck(http.MethodGet, server.HealthCheckHandler))
+	http.HandleFunc("/api/system/rtl433-version", handlers.MethodCheck(http.MethodPost, server.RTL433VersionHandler))
+	http.HandleFunc("/api/system/info", handlers.MethodCheck(http.MethodGet, server.SystemInfoHandler))
 
 	// Serve static files for dashboard using embedded filesystem
 	staticFS, err := fs.Sub(staticFiles, "static")
