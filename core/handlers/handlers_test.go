@@ -195,7 +195,7 @@ func TestHealthCheckHandler(t *testing.T) {
 		// Ping to verify connection
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := db.PingContext(ctx); err != nil {
+		if err = db.PingContext(ctx); err != nil {
 			t.Skipf("PostgreSQL database not available: %v", err)
 			return
 		}
@@ -263,7 +263,7 @@ func TestCurrentWeatherHandler(t *testing.T) {
 		// Ping to verify connection
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := db.PingContext(ctx); err != nil {
+		if err = db.PingContext(ctx); err != nil {
 			t.Fatalf("Failed to ping database: %v", err)
 		}
 
@@ -297,11 +297,8 @@ func TestCurrentWeatherHandler(t *testing.T) {
 		// Ping to verify connection
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := db.PingContext(ctx); err != nil {
+		if err = db.PingContext(ctx); err != nil {
 			t.Fatalf("Failed to ping database: %v", err)
-		}
-		if err != nil {
-			t.Fatalf("Failed to create table: %v", err)
 		}
 
 		// Clear any existing data
@@ -310,7 +307,7 @@ func TestCurrentWeatherHandler(t *testing.T) {
 		_, err = db.Exec(`INSERT INTO readings (sensor_id, timestamp, temperature_c, humidity, uv, light_lux, wind_speed_m_s, wind_gust_m_s, wind_dir_deg, rain_mm, battery, model, rain_start, firmware) VALUES (
 			1, '2026-03-12T10:00:00Z', 20.5, 65, 5.0, 10000.0, 3.5, 8.0, 180, 0.0, 1.0, 'TestModel', 0, 160
 		)`)
-		if err != nil {
+		if err != nil { //nolint:nilness
 			t.Fatalf("Failed to insert test data: %v", err)
 		}
 
@@ -347,7 +344,7 @@ func TestCurrentWeatherHandler(t *testing.T) {
 		// Ping to verify connection
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := db.PingContext(ctx); err != nil {
+		if err = db.PingContext(ctx); err != nil {
 			t.Fatalf("Failed to ping database: %v", err)
 		}
 
@@ -408,7 +405,7 @@ func TestCurrentWeatherHandler(t *testing.T) {
 		// Ping to verify connection
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := db.PingContext(ctx); err != nil {
+		if err = db.PingContext(ctx); err != nil {
 			t.Fatalf("Failed to ping database: %v", err)
 		}
 
@@ -461,7 +458,7 @@ func TestCurrentWeatherHandler(t *testing.T) {
 		// Ping to verify connection
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := db.PingContext(ctx); err != nil {
+		if err = db.PingContext(ctx); err != nil {
 			t.Fatalf("Failed to ping database: %v", err)
 		}
 
@@ -495,7 +492,7 @@ func TestHistoryWeatherHandler(t *testing.T) {
 		// Ping to verify connection
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := db.PingContext(ctx); err != nil {
+		if err = db.PingContext(ctx); err != nil {
 			t.Skipf("PostgreSQL database not available: %v", err)
 			return
 		}
@@ -524,7 +521,7 @@ func TestHistoryWeatherHandler(t *testing.T) {
 		// Ping to verify connection
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := db.PingContext(ctx); err != nil {
+		if err = db.PingContext(ctx); err != nil {
 			t.Skipf("PostgreSQL database not available: %v", err)
 			return
 		}
@@ -576,7 +573,7 @@ func TestHistoryWeatherHandler(t *testing.T) {
 		// Ping to verify connection
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := db.PingContext(ctx); err != nil {
+		if err = db.PingContext(ctx); err != nil {
 			t.Fatalf("Failed to ping database: %v", err)
 		}
 
@@ -654,7 +651,7 @@ func TestAvailableYearsHandler(t *testing.T) {
 		// Ping to verify connection
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := db.PingContext(ctx); err != nil {
+		if err = db.PingContext(ctx); err != nil {
 			t.Fatalf("Failed to ping database: %v", err)
 		}
 
@@ -711,7 +708,7 @@ func TestAvailableYearsHandler(t *testing.T) {
 		// Ping to verify connection
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := db.PingContext(ctx); err != nil {
+		if err = db.PingContext(ctx); err != nil {
 			t.Fatalf("Failed to ping database: %v", err)
 		}
 
@@ -740,15 +737,15 @@ func TestAvailableYearsHandler(t *testing.T) {
 		db.Exec(`DELETE FROM daily_weather`)
 
 		_, err = db.Exec(`INSERT INTO daily_weather VALUES ('2025-01-01', 0, 0, 0, 0, 0, 0, 0, 0, 0, '2025-01-01', '2025-01-01', 0, 0)`)
-		if err != nil {
+		if err != nil { //nolint:nilness
 			t.Fatalf("Failed to insert test data: %v", err)
 		}
 		_, err = db.Exec(`INSERT INTO daily_weather VALUES ('2024-01-01', 0, 0, 0, 0, 0, 0, 0, 0, 0, '2024-01-01', '2024-01-01', 0, 0)`)
-		if err != nil {
+		if err != nil { //nolint:nilness
 			t.Fatalf("Failed to insert test data: %v", err)
 		}
 		_, err = db.Exec(`INSERT INTO daily_weather VALUES ('2025-06-01', 0, 0, 0, 0, 0, 0, 0, 0, 0, '2025-06-01', '2025-06-01', 0, 0)`)
-		if err != nil {
+		if err != nil { //nolint:nilness
 			t.Fatalf("Failed to insert test data: %v", err)
 		}
 
@@ -793,7 +790,7 @@ func TestRecentWeatherHandler(t *testing.T) {
 		// Ping to verify connection
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := db.PingContext(ctx); err != nil {
+		if err = db.PingContext(ctx); err != nil {
 			t.Fatalf("Failed to ping database: %v", err)
 		}
 
@@ -820,7 +817,7 @@ func TestRecentWeatherHandler(t *testing.T) {
 		// Ping to verify connection
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := db.PingContext(ctx); err != nil {
+		if err = db.PingContext(ctx); err != nil {
 			t.Fatalf("Failed to ping database: %v", err)
 		}
 
@@ -847,7 +844,7 @@ func TestRecentWeatherHandler(t *testing.T) {
 		// Ping to verify connection
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := db.PingContext(ctx); err != nil {
+		if err = db.PingContext(ctx); err != nil {
 			t.Fatalf("Failed to ping database: %v", err)
 		}
 
@@ -882,7 +879,7 @@ func TestRecentWeatherHandler(t *testing.T) {
 		// Ping to verify connection
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := db.PingContext(ctx); err != nil {
+		if err = db.PingContext(ctx); err != nil {
 			t.Fatalf("Failed to ping database: %v", err)
 		}
 
@@ -939,7 +936,7 @@ func TestRecentWeatherHandler(t *testing.T) {
 		// Ping to verify connection
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := db.PingContext(ctx); err != nil {
+		if err = db.PingContext(ctx); err != nil {
 			t.Fatalf("Failed to ping database: %v", err)
 		}
 
@@ -1062,7 +1059,7 @@ func TestCalculateRainWithResetDetection(t *testing.T) {
 		// Ping to verify connection
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := db.PingContext(ctx); err != nil {
+		if err = db.PingContext(ctx); err != nil {
 			t.Fatalf("Failed to ping database: %v", err)
 		}
 
@@ -1098,7 +1095,7 @@ func TestCalculateRainWithResetDetection(t *testing.T) {
 		// Ping to verify connection
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := db.PingContext(ctx); err != nil {
+		if err = db.PingContext(ctx); err != nil {
 			t.Fatalf("Failed to ping database: %v", err)
 		}
 
@@ -1117,15 +1114,15 @@ func TestCalculateRainWithResetDetection(t *testing.T) {
 		timestamp3 := now.Add(-1*time.Hour - 40*time.Minute).Format(time.RFC3339)
 
 		_, err = db.Exec(`INSERT INTO readings (sensor_id, timestamp, temperature_c, humidity, uv, light_lux, wind_speed_m_s, wind_gust_m_s, wind_dir_deg, rain_mm, battery, model, rain_start, firmware) VALUES (1, $1, 0, 0, 0, 0, 0, 0, 0, 0.0, 0, '', 0, 0)`, timestamp1)
-		if err != nil {
+		if err != nil { //nolint:nilness
 			t.Fatalf("Failed to insert test data: %v", err)
 		}
 		_, err = db.Exec(`INSERT INTO readings (sensor_id, timestamp, temperature_c, humidity, uv, light_lux, wind_speed_m_s, wind_gust_m_s, wind_dir_deg, rain_mm, battery, model, rain_start, firmware) VALUES (1, $1, 0, 0, 0, 0, 0, 0, 0, 5.0, 0, '', 0, 0)`, timestamp2)
-		if err != nil {
+		if err != nil { //nolint:nilness
 			t.Fatalf("Failed to insert test data: %v", err)
 		}
 		_, err = db.Exec(`INSERT INTO readings (sensor_id, timestamp, temperature_c, humidity, uv, light_lux, wind_speed_m_s, wind_gust_m_s, wind_dir_deg, rain_mm, battery, model, rain_start, firmware) VALUES (1, $1, 0, 0, 0, 0, 0, 0, 0, 10.0, 0, '', 0, 0)`, timestamp3)
-		if err != nil {
+		if err != nil { //nolint:nilness
 			t.Fatalf("Failed to insert test data: %v", err)
 		}
 
@@ -1156,7 +1153,7 @@ func TestCalculateRainWithResetDetection(t *testing.T) {
 		// Ping to verify connection
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := db.PingContext(ctx); err != nil {
+		if err = db.PingContext(ctx); err != nil {
 			t.Fatalf("Failed to ping database: %v", err)
 		}
 
@@ -1175,15 +1172,15 @@ func TestCalculateRainWithResetDetection(t *testing.T) {
 		timestamp3 := now.Add(-1*time.Hour - 40*time.Minute).Format(time.RFC3339)
 
 		_, err = db.Exec(`INSERT INTO readings (sensor_id, timestamp, temperature_c, humidity, uv, light_lux, wind_speed_m_s, wind_gust_m_s, wind_dir_deg, rain_mm, battery, model, rain_start, firmware) VALUES (1, $1, 0, 0, 0, 0, 0, 0, 0, 5.0, 0, '', 0, 0)`, timestamp1)
-		if err != nil {
+		if err != nil { //nolint:nilness
 			t.Fatalf("Failed to insert test data: %v", err)
 		}
 		_, err = db.Exec(`INSERT INTO readings (sensor_id, timestamp, temperature_c, humidity, uv, light_lux, wind_speed_m_s, wind_gust_m_s, wind_dir_deg, rain_mm, battery, model, rain_start, firmware) VALUES (1, $1, 0, 0, 0, 0, 0, 0, 0, 0.0, 0, '', 0, 0)`, timestamp2) // Reset
-		if err != nil {
+		if err != nil { //nolint:nilness
 			t.Fatalf("Failed to insert test data: %v", err)
 		}
 		_, err = db.Exec(`INSERT INTO readings (sensor_id, timestamp, temperature_c, humidity, uv, light_lux, wind_speed_m_s, wind_gust_m_s, wind_dir_deg, rain_mm, battery, model, rain_start, firmware) VALUES (1, $1, 0, 0, 0, 0, 0, 0, 0, 3.0, 0, '', 0, 0)`, timestamp3)
-		if err != nil {
+		if err != nil { //nolint:nilness
 			t.Fatalf("Failed to insert test data: %v", err)
 		}
 
@@ -1215,7 +1212,7 @@ func TestIsCurrentlyRaining(t *testing.T) {
 	// Ping to verify connection
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := db.PingContext(ctx); err != nil {
+	if err = db.PingContext(ctx); err != nil {
 		t.Fatalf("Failed to ping database: %v", err)
 	}
 
@@ -1448,7 +1445,7 @@ func TestRTL433VersionHandler(t *testing.T) {
 	// Ping to verify connection
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := db.PingContext(ctx); err != nil {
+	if err = db.PingContext(ctx); err != nil {
 		t.Skipf("PostgreSQL database not available: %v", err)
 		return
 	}
@@ -1548,7 +1545,7 @@ func TestSystemInfoHandler(t *testing.T) {
 	// Ping to verify connection
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := db.PingContext(ctx); err != nil {
+	if err = db.PingContext(ctx); err != nil {
 		t.Skipf("PostgreSQL database not available: %v", err)
 		return
 	}

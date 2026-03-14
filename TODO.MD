@@ -657,13 +657,29 @@ func setupTestServer(t *testing.T) (*httptest.Server, *sql.DB) {
 ```
 
 **Phase 2 Summary:** COMPLETED
-- 36 tests implemented covering all handlers
+- 42 tests implemented covering all handlers
 - Tests use httptest for HTTP testing
 - All tests passing with 77.4% coverage
 - Added comprehensive tests for rain detection functionality:
-  - TestIsCurrentlyRaining (5 subtests): Tests rain detection based on 5-minute window
+  - TestIsCurrentlyRaining (6 subtests): Tests rain detection based on 5-minute window
+    - NoDataAvailable: Returns 0 when no readings exist
+    - NoRainInLast5Minutes: Returns 0 when readings are outside the 5-minute window
+    - RainAboveThreshold: Returns 1 when rain > 0.1mm in last 5 minutes
+    - RainBelowThreshold: Returns 0 when rain < 0.1mm (sensor noise threshold)
+    - SensorResetDuringRain: Correctly handles sensor resets and only counts rain after reset
+    - NonZeroCounterNoChange: Handles non-zero counter values with no change
   - TestCurrentWeatherHandler additions (2 subtests): Tests RainStart calculation integration
+- Added system info functionality tests:
+  - TestRTL433VersionHandler (4 subtests): Tests rtl_433 version endpoint
+    - ValidVersion: Accepts and stores valid version string
+    - EmptyVersion: Handles empty version gracefully
+    - InvalidJSON: Handles malformed JSON
+    - MissingVersionField: Handles missing version field
+  - TestSystemInfoHandler (2 subtests): Tests system info endpoint
+    - NoVersionSet: Returns empty string when no version set
+    - VersionSet: Returns stored version string
 - Rain detection logic correctly handles sensor resets and 0.1mm threshold
+- Mutex protection for concurrent access to rtl_433 version
 
 ---
 
@@ -774,6 +790,50 @@ func TestDashboardDataDisplay(t *testing.T) {
     // Verify response structure
     // Verify rain_start field included
 }
+```
+
+### Ingestor Unit Tests (Added to Phase 4)
+
+**Target Files:**
+- `ingestor/main.go`
+
+**Test Cases to Implement:**
+
+**RTL433 Version Tests:**
+```go
+func TestSendRTL433Version(t *testing.T) {
+    // Test successful version retrieval and sending
+    // Test version parsing with regex
+    // Test timeout handling (5-second timeout)
+    // Test retry logic (3 attempts with 2-second delay)
+    // Test error handling when rtl_433 command fails
+    // Test empty version string handling
+    // Test malformed version string handling
+}
+```
+
+**Version Parsing Tests:**
+```go
+func TestParseRTL433Version(t *testing.T) {
+    // Test parsing version with date (e.g., "25.12 (2025-12-12)")
+    // Test parsing version without date (e.g., "25.12")
+    // Test parsing full line fallback
+    // Test empty string handling
+    // Test invalid format handling
+}
+```
+
+**Logging Tests:**
+```go
+func TestIngestorLogging(t *testing.T) {
+    // Test weather data logging (JSON output)
+    // Test worker processing logs
+    // Test error logs for failed parsing
+    // Test success logs for API calls
+}
+```
+
+**Note:** Ingestor currently has no test coverage. Need to create `ingestor/main_test.go` file.
 ```
 
 ### Frontend E2E Tests (Optional)
@@ -1219,3 +1279,82 @@ func (r *RainTotals) Update(reading types.Reading) {
 - Cache pressure data for 5-10 minutes to reduce API calls
 - Implement timeout for HTTP requests (10-30 seconds)
 - Track rain totals in memory (or database for persistence)
+
+---
+
+## Overall Testing Status
+
+### Completed Phases
+
+**Phase 1: Unit Tests for Shared Utilities** ✅ COMPLETED
+- Validation: 20 tests, 100% coverage
+- Worker Pool: 17 tests, 96.6% coverage  
+- Logger: 17 tests, 100% coverage
+- Total: 54 tests, excellent coverage
+
+**Phase 2: Handler Tests with httptest** ✅ COMPLETED
+- 42 tests implemented covering all handlers
+- All tests passing with 77.4% coverage
+- Includes rain detection tests (6 subtests)
+- Includes rtl_433 version tests (6 subtests)
+- Includes system info tests (2 subtests)
+
+### Pending Phases
+
+**Phase 3: Database Integration Tests** ⏳ NOT STARTED
+- Target: `core/database/database.go`, `migrations/*.sql`
+- Tests needed: Database connection, insert operations, queries, daily rollup
+- Requires: Test database setup (Docker PostgreSQL)
+
+**Phase 4: E2E Tests for Critical User Flows** ⏳ NOT STARTED
+- Target: Full system integration
+- Tests needed: Data ingestion flow, daily rollup flow, dashboard display
+- **NEW: Ingestor unit tests** (added to Phase 4)
+  - RTL433 version tests (7 test cases)
+  - Version parsing tests (5 test cases)
+  - Logging tests (4 test cases)
+  - Note: Ingestor currently has no test coverage
+  - Need to create: `ingestor/main_test.go`
+
+### Test Coverage Summary
+
+**Current Test Coverage:**
+- Core handlers: 77.4% (42 tests)
+- Shared logger: 100% (17 tests)
+- Shared validation: 100% (20 tests)
+- Shared workers: 96.6% (17 tests)
+- Ingestor: 0% (no tests)
+
+**Total Tests:** 96 tests passing
+
+**Missing Test Coverage:**
+- Ingestor: 0% (needs 16+ tests)
+- Core database: 0% (needs integration tests)
+- Core astronomical: 0% (no tests)
+- Core config: 0% (no tests)
+
+### Recent Changes (2026-03-14)
+
+**New Functionality Added:**
+- RTL433 version display in dashboard
+- System info endpoints (`/api/system/rtl433-version`, `/api/system/info`)
+- Ingestor version sending at startup
+- Weather data logging for debugging
+
+**Tests Added:**
+- TestRTL433VersionHandler (4 subtests)
+- TestSystemInfoHandler (2 subtests)
+- TestIsCurrentlyRaining (6 subtests)
+
+**Bugs Fixed:**
+- Weather icon showing rain when not raining (fixed rain calculation logic)
+- Handler test nilness warnings (fixed with `=` instead of `:=`)
+- Ingestor hanging on startup (fixed timeout and retry logic)
+- RTL433 version parsing (fixed to use `-V` flag instead of `-v`)
+
+**Files Modified:**
+- `core/handlers/handlers.go`: Added system info handlers
+- `core/handlers/handlers_test.go`: Added new tests, fixed nilness warnings
+- `core/main.go`: Registered new routes
+- `core/static/index.html`: Added rtl_433 version display
+- `ingestor/main.go`: Added version sending and logging

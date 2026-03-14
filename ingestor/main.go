@@ -212,6 +212,8 @@ func processStdout(scanner *bufio.Scanner, jobQueue chan<- Job) {
 	for scanner.Scan() {
 		line := scanner.Text()
 
+		logger.Info("Processing weather data: %s", line)
+
 		var reading types.Reading
 		if err := json.Unmarshal([]byte(line), &reading); err != nil {
 			logger.Error("Failed to parse JSON line: %v", err)
