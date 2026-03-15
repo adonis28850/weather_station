@@ -602,9 +602,10 @@ func TestHistoryWeatherHandler(t *testing.T) {
 		db.Exec(`DELETE FROM daily_weather`)
 
 		// Use today's date for test data to ensure it's within the retention period
-		today := time.Now().Format("2006-01-02")
-		todayStart := today + "T00:00:00Z"
-		todayEnd := today + "T23:59:59Z"
+		now := time.Now()
+		today := now.Format("2006-01-02")
+		todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC).Format(time.RFC3339)
+		todayEnd := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, time.UTC).Format(time.RFC3339)
 
 		_, err = db.Exec(`INSERT INTO daily_weather (day_date, temp_high_c, temp_low_c, humidity_high, humidity_low, rain_mm, wind_max_gust_m_s, wind_mean_m_s, wind_sample_count, readings_count, first_reading_ts, last_reading_ts, uv_max, light_max) VALUES (
 			$1, 25.0, 15.0, 80, 40, 5.0, 10.0, 5.0, 100, 100, $2, $3, 8.0, 50000
@@ -1192,8 +1193,8 @@ func TestCalculateRainWithResetDetection(t *testing.T) {
 
 		rain := server.calculateRainWithResetDetection(ctx, start, end)
 
-		if rain != 3.0 {
-			t.Errorf("Expected 3.0 rain (with reset), got %f", rain)
+		if rain != 8.0 {
+			t.Errorf("Expected 8.0 rain (5.0 before reset + 3.0 after reset), got %f", rain)
 		}
 
 		// Clean up
@@ -1593,5 +1594,265 @@ func TestSystemInfoHandler(t *testing.T) {
 		if response["rtl_433_version"] != "rtl_433 version 24.10" {
 			t.Errorf("Expected rtl_433_version 'rtl_433 version 24.10', got '%s'", response["rtl_433_version"])
 		}
+	})
+}
+
+// TestCalculateRainWithResetDetectionEdgeCases tests edge cases for rain calculation with reset detection
+func TestCalculateRainWithResetDetectionEdgeCases(t *testing.T) {
+	db, err := sql.Open("postgres", "host=127.0.0.1 port=5432 user=postgres password=postgres dbname=weather_station sslmode=disable")
+	if err != nil {
+		t.Skip("PostgreSQL not available for testing")
+		return
+	}
+	defer db.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err = db.PingContext(ctx); err != nil {
+		t.Skipf("PostgreSQL database not available: %v", err)
+		return
+	}
+
+	server := NewServer(db, config.Config{})
+
+	t.Run("MultipleResetsInOneDay", func(t *testing.T) {
+		sensorID := 9980
+
+		// Clean up any existing test data
+		db.ExecContext(ctx, "DELETE FROM readings WHERE sensor_id = $1", sensorID)
+
+		// Insert readings with multiple resets
+		stmt, err := db.PrepareContext(ctx, `
+			INSERT INTO readings (sensor_id, timestamp, temperature_c, humidity, wind_speed_m_s, wind_gust_m_s, wind_dir_deg, rain_mm, battery, model, rain_start, firmware)
+			VALUES ($1, $2, 20.0, 65, 3.0, 7.0, 180, $3, 1.0, 'TestModel', $4, 160)
+		`)
+		if err != nil {
+			t.Fatalf("Failed to prepare insert statement: %v", err)
+		}
+		defer stmt.Close()
+
+		baseTime := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 8, 0, 0, 0, time.UTC)
+
+		// First rain event
+		stmt.ExecContext(ctx, sensorID, baseTime, 0.5, 1)
+		// Sensor reset
+		stmt.ExecContext(ctx, sensorID, baseTime.Add(1*time.Hour), 0.0, 0)
+		// Second rain event
+		stmt.ExecContext(ctx, sensorID, baseTime.Add(2*time.Hour), 0.3, 1)
+		// Another reset
+		stmt.ExecContext(ctx, sensorID, baseTime.Add(3*time.Hour), 0.0, 0)
+		// Third rain event
+		stmt.ExecContext(ctx, sensorID, baseTime.Add(4*time.Hour), 0.2, 1)
+
+		start := baseTime
+		end := baseTime.Add(5 * time.Hour)
+
+		rain := server.calculateRainWithResetDetection(ctx, start, end)
+		expectedRain := 0.5 + 0.3 + 0.2 // Sum of all rain events
+
+		if rain != expectedRain {
+			t.Errorf("Expected total rain %.2f, got %.2f", expectedRain, rain)
+		}
+
+		// Clean up
+		db.ExecContext(ctx, "DELETE FROM readings WHERE sensor_id = $1", sensorID)
+	})
+
+	t.Run("ContinuousRainWithoutReset", func(t *testing.T) {
+		sensorID := 9981
+
+		// Clean up any existing test data
+		db.ExecContext(ctx, "DELETE FROM readings WHERE sensor_id = $1", sensorID)
+
+		// Insert readings with continuous rain
+		stmt, err := db.PrepareContext(ctx, `
+			INSERT INTO readings (sensor_id, timestamp, temperature_c, humidity, wind_speed_m_s, wind_gust_m_s, wind_dir_deg, rain_mm, battery, model, rain_start, firmware)
+			VALUES ($1, $2, 20.0, 65, 3.0, 7.0, 180, $3, 1.0, 'TestModel', $4, 160)
+		`)
+		if err != nil {
+			t.Fatalf("Failed to prepare insert statement: %v", err)
+		}
+		defer stmt.Close()
+
+		baseTime := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 8, 0, 0, 0, time.UTC)
+
+		stmt.ExecContext(ctx, sensorID, baseTime, 0.5, 1)
+		stmt.ExecContext(ctx, sensorID, baseTime.Add(1*time.Hour), 0.7, 1)
+		stmt.ExecContext(ctx, sensorID, baseTime.Add(2*time.Hour), 0.8, 1)
+
+		start := baseTime
+		end := baseTime.Add(3 * time.Hour)
+
+		rain := server.calculateRainWithResetDetection(ctx, start, end)
+		expectedRain := 0.8 // Should take the last reading (cumulative)
+
+		if rain != expectedRain {
+			t.Errorf("Expected total rain %.2f, got %.2f", expectedRain, rain)
+		}
+
+		// Clean up
+		db.ExecContext(ctx, "DELETE FROM readings WHERE sensor_id = $1", sensorID)
+	})
+}
+
+// TestIsCurrentlyRainingEdgeCases tests edge cases for current rain detection
+func TestIsCurrentlyRainingEdgeCases(t *testing.T) {
+	db, err := sql.Open("postgres", "host=127.0.0.1 port=5432 user=postgres password=postgres dbname=weather_station sslmode=disable")
+	if err != nil {
+		t.Skip("PostgreSQL not available for testing")
+		return
+	}
+	defer db.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err = db.PingContext(ctx); err != nil {
+		t.Skipf("PostgreSQL database not available: %v", err)
+		return
+	}
+
+	server := NewServer(db, config.Config{})
+
+	t.Run("ExactThreshold", func(t *testing.T) {
+		sensorID := 9982
+
+		// Clean up any existing test data
+		db.ExecContext(ctx, "DELETE FROM readings WHERE sensor_id = $1", sensorID)
+
+		// Insert 2 readings with delta of exactly 0.1mm (should NOT be detected as raining, threshold is > 0.1)
+		now := time.Now()
+		stmt, err := db.PrepareContext(ctx, `
+			INSERT INTO readings (sensor_id, timestamp, temperature_c, humidity, wind_speed_m_s, wind_gust_m_s, wind_dir_deg, rain_mm, battery, model, rain_start, firmware)
+			VALUES ($1, $2, 20.0, 65, 3.0, 7.0, 180, $3, 1.0, 'TestModel', 1, 160)
+		`)
+		if err != nil {
+			t.Fatalf("Failed to prepare insert statement: %v", err)
+		}
+		defer stmt.Close()
+
+		stmt.ExecContext(ctx, sensorID, now.Add(-3*time.Minute), 0.0)
+		stmt.ExecContext(ctx, sensorID, now.Add(-2*time.Minute), 0.1)
+
+		isRaining := server.isCurrentlyRaining(ctx)
+
+		if isRaining != 0 {
+			t.Error("Should NOT detect rain at exact threshold (0.1mm), threshold is > 0.1")
+		}
+
+		// Clean up
+		db.ExecContext(ctx, "DELETE FROM readings WHERE sensor_id = $1", sensorID)
+	})
+
+	t.Run("ResetWithinFiveMinutes", func(t *testing.T) {
+		sensorID := 9983
+
+		// Clean up any existing test data
+		db.ExecContext(ctx, "DELETE FROM readings WHERE sensor_id = $1", sensorID)
+
+		// Insert readings with reset within 5-minute window
+		now := time.Now()
+		stmt, err := db.PrepareContext(ctx, `
+			INSERT INTO readings (sensor_id, timestamp, temperature_c, humidity, wind_speed_m_s, wind_gust_m_s, wind_dir_deg, rain_mm, battery, model, rain_start, firmware)
+			VALUES ($1, $2, 20.0, 65, 3.0, 7.0, 180, $3, 1.0, 'TestModel', $4, 160)
+		`)
+		if err != nil {
+			t.Fatalf("Failed to prepare insert statement: %v", err)
+		}
+		defer stmt.Close()
+
+		stmt.ExecContext(ctx, sensorID, now.Add(-3*time.Minute), 0.5, 1)
+		stmt.ExecContext(ctx, sensorID, now.Add(-2*time.Minute), 0.0, 0) // Reset
+		stmt.ExecContext(ctx, sensorID, now.Add(-1*time.Minute), 0.05, 1)
+
+		isRaining := server.isCurrentlyRaining(ctx)
+
+		if isRaining != 0 {
+			t.Error("Should not detect rain after reset within 5-minute window with low accumulation")
+		}
+
+		// Clean up
+		db.ExecContext(ctx, "DELETE FROM readings WHERE sensor_id = $1", sensorID)
+	})
+
+	t.Run("JustAboveThreshold", func(t *testing.T) {
+		sensorID := 9984
+
+		// Clean up any existing test data
+		db.ExecContext(ctx, "DELETE FROM readings WHERE sensor_id = $1", sensorID)
+
+		// Insert 2 readings with delta of 0.11mm (above the threshold of 0.1mm)
+		now := time.Now()
+		stmt, err := db.PrepareContext(ctx, `
+			INSERT INTO readings (sensor_id, timestamp, temperature_c, humidity, wind_speed_m_s, wind_gust_m_s, wind_dir_deg, rain_mm, battery, model, rain_start, firmware)
+			VALUES ($1, $2, 20.0, 65, 3.0, 7.0, 180, $3, 1.0, 'TestModel', 1, 160)
+		`)
+		if err != nil {
+			t.Fatalf("Failed to prepare insert statement: %v", err)
+		}
+		defer stmt.Close()
+
+		stmt.ExecContext(ctx, sensorID, now.Add(-3*time.Minute), 0.0)
+		stmt.ExecContext(ctx, sensorID, now.Add(-2*time.Minute), 0.11)
+
+		isRaining := server.isCurrentlyRaining(ctx)
+
+		if isRaining != 1 {
+			t.Error("Should detect rain just above threshold (0.11mm)")
+		}
+
+		// Clean up
+		db.ExecContext(ctx, "DELETE FROM readings WHERE sensor_id = $1", sensorID)
+	})
+
+	t.Run("JustBelowThreshold", func(t *testing.T) {
+		sensorID := 9985
+
+		// Clean up any existing test data
+		db.ExecContext(ctx, "DELETE FROM readings WHERE sensor_id = $1", sensorID)
+
+		// Insert reading just below threshold
+		now := time.Now()
+		_, err := db.ExecContext(ctx, `
+			INSERT INTO readings (sensor_id, timestamp, temperature_c, humidity, wind_speed_m_s, wind_gust_m_s, wind_dir_deg, rain_mm, battery, model, rain_start, firmware)
+			VALUES ($1, $2, 20.0, 65, 3.0, 7.0, 180, 0.09, 1.0, 'TestModel', 1, 160)
+		`, sensorID, now.Add(-2*time.Minute))
+		if err != nil {
+			t.Fatalf("Failed to insert test reading: %v", err)
+		}
+
+		isRaining := server.isCurrentlyRaining(ctx)
+
+		if isRaining != 0 {
+			t.Error("Should not detect rain just below threshold (0.09mm)")
+		}
+
+		// Clean up
+		db.ExecContext(ctx, "DELETE FROM readings WHERE sensor_id = $1", sensorID)
+	})
+
+	t.Run("NoRecentReadings", func(t *testing.T) {
+		sensorID := 9986
+
+		// Clean up any existing test data
+		db.ExecContext(ctx, "DELETE FROM readings WHERE sensor_id = $1", sensorID)
+
+		// Insert reading older than 5 minutes
+		now := time.Now()
+		_, err := db.ExecContext(ctx, `
+			INSERT INTO readings (sensor_id, timestamp, temperature_c, humidity, wind_speed_m_s, wind_gust_m_s, wind_dir_deg, rain_mm, battery, model, rain_start, firmware)
+			VALUES ($1, $2, 20.0, 65, 3.0, 7.0, 180, 0.5, 1.0, 'TestModel', 1, 160)
+		`, sensorID, now.Add(-10*time.Minute))
+		if err != nil {
+			t.Fatalf("Failed to insert test reading: %v", err)
+		}
+
+		isRaining := server.isCurrentlyRaining(ctx)
+
+		if isRaining != 0 {
+			t.Error("Should not detect rain with readings older than 5 minutes")
+		}
+
+		// Clean up
+		db.ExecContext(ctx, "DELETE FROM readings WHERE sensor_id = $1", sensorID)
 	})
 }

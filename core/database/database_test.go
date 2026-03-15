@@ -530,3 +530,6 @@ func TestCleanOldReadings(t *testing.T) {
 		db.ExecContext(ctx, "DELETE FROM readings WHERE sensor_id = 9992")
 	})
 }
+
+
+
