@@ -2153,7 +2153,14 @@ function updateRangeChart(canvasId, chartInstance, labels, highData, lowData, la
                 const now = new Date();
                 const sunrise = new Date(data.astronomical.sunrise);
                 const sunset = new Date(data.astronomical.sunset);
-                isNight = now < sunrise || now > sunset;
+                
+                // Compare only time components (hour/minute), not dates
+                // This handles stale astronomical data from previous days
+                const nowMinutes = now.getHours() * 60 + now.getMinutes();
+                const sunriseMinutes = sunrise.getHours() * 60 + sunrise.getMinutes();
+                const sunsetMinutes = sunset.getHours() * 60 + sunset.getMinutes();
+                
+                isNight = nowMinutes < sunriseMinutes || nowMinutes > sunsetMinutes;
             } else {
                 // Fallback: use time-based detection
                 isNight = hour >= 20 || hour < 6;
