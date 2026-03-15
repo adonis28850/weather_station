@@ -742,18 +742,31 @@ func setupTestDatabase(t *testing.T) *sql.DB {
 ```
 
 ### Test Database Configuration
-```go
-// Use Docker for test database
-docker run -d \
-  --name weather-test-db \
-  -e POSTGRES_DB=weather_station_test \
-  -e POSTGRES_USER=test_user \
-  -e POSTGRES_PASSWORD=test_password \
-  postgres:15
+Use local Postgres database (host=127.0.0.1:5432, user=postgres, password=postgres, dbname=weather_station).
 
-// Or use environment variable
-export TEST_DATABASE_URL="postgres://test_user:test_password@localhost:5433/weather_station_test"
-```
+### Status: COMPLETED
+
+**Tests Implemented:** 15 subtests, all passing
+
+**Test Coverage:** 83.1% of statements
+
+**Summary:**
+- TestConnect (3 subtests): Database connection with connection pool configuration, error handling for invalid host and credentials
+- TestConnectWithRetry (2 subtests): Connection with retry logic, failure after max retries
+- TestPrepareInsertStatement (2 subtests): Preparing INSERT statement, panic handling for nil database
+- TestInsertReading (4 subtests): Inserting readings with different timestamp formats (RFC3339Nano, rtl_433), error handling for invalid timestamps
+- TestComputeDailyRollup (2 subtests): Triggering daily rollup function, handling no data for specified date
+- TestCleanOldReadings (2 subtests): Deleting old readings based on retention policy, handling no old readings
+
+**Key Features:**
+- Tests use local PostgreSQL database
+- Graceful skip when database unavailable
+- Comprehensive error handling testing
+- Tests both success and failure cases
+- Tests different timestamp formats
+- Tests database functions (rollup, cleanup)
+- Tests connection pool configuration
+- Tests retry logic
 
 ---
 
@@ -792,7 +805,7 @@ func TestDashboardDataDisplay(t *testing.T) {
 }
 ```
 
-### Ingestor Unit Tests (Added to Phase 4)
+### Ingestor Unit Tests
 
 **Target Files:**
 - `ingestor/main.go`
@@ -1288,7 +1301,7 @@ func (r *RainTotals) Update(reading types.Reading) {
 
 **Phase 1: Unit Tests for Shared Utilities** ✅ COMPLETED
 - Validation: 20 tests, 100% coverage
-- Worker Pool: 17 tests, 96.6% coverage  
+- Worker Pool: 17 tests, 96.6% coverage
 - Logger: 17 tests, 100% coverage
 - Total: 54 tests, excellent coverage
 
@@ -1298,18 +1311,23 @@ func (r *RainTotals) Update(reading types.Reading) {
 - Includes rain detection tests (6 subtests)
 - Includes rtl_433 version tests (6 subtests)
 - Includes system info tests (2 subtests)
+- Fixed weather icon bug (incorrect day/night calculation)
+- Added mutex protection for concurrent access
+
+**Phase 3: Database Integration Tests** ✅ COMPLETED
+- 15 tests implemented covering database functions
+- All tests passing with 83.1% coverage
+- Tests database connection, retry logic, prepared statements
+- Tests insert operations with different timestamp formats
+- Tests daily rollup and cleanup functions
+- Tests error handling and edge cases
 
 ### Pending Phases
-
-**Phase 3: Database Integration Tests** ⏳ NOT STARTED
-- Target: `core/database/database.go`, `migrations/*.sql`
-- Tests needed: Database connection, insert operations, queries, daily rollup
-- Requires: Test database setup (Docker PostgreSQL)
 
 **Phase 4: E2E Tests for Critical User Flows** ⏳ NOT STARTED
 - Target: Full system integration
 - Tests needed: Data ingestion flow, daily rollup flow, dashboard display
-- **NEW: Ingestor unit tests** (added to Phase 4)
+- **Ingestor unit tests** (added to Phase 4)
   - RTL433 version tests (7 test cases)
   - Version parsing tests (5 test cases)
   - Logging tests (4 test cases)
@@ -1320,34 +1338,37 @@ func (r *RainTotals) Update(reading types.Reading) {
 
 **Current Test Coverage:**
 - Core handlers: 77.4% (42 tests)
+- Core database: 83.1% (15 tests)
 - Shared logger: 100% (17 tests)
 - Shared validation: 100% (20 tests)
 - Shared workers: 96.6% (17 tests)
 - Ingestor: 0% (no tests)
 
-**Total Tests:** 96 tests passing
+**Total Tests:** 111 tests passing
 
 **Missing Test Coverage:**
 - Ingestor: 0% (needs 16+ tests)
-- Core database: 0% (needs integration tests)
 - Core astronomical: 0% (no tests)
 - Core config: 0% (no tests)
 
-### Recent Changes (2026-03-14)
+### Recent Changes (2026-03-15)
 
 **New Functionality Added:**
 - RTL433 version display in dashboard
 - System info endpoints (`/api/system/rtl433-version`, `/api/system/info`)
 - Ingestor version sending at startup
-- Weather data logging for debugging
+- Weather data logging for debugging (raw JSON from rtl_433)
 
 **Tests Added:**
-- TestRTL433VersionHandler (4 subtests)
-- TestSystemInfoHandler (2 subtests)
-- TestIsCurrentlyRaining (6 subtests)
+- TestConnect (3 subtests): Database connection tests
+- TestConnectWithRetry (2 subtests): Retry logic tests
+- TestPrepareInsertStatement (2 subtests): Statement preparation tests
+- TestInsertReading (4 subtests): Insert operation tests
+- TestComputeDailyRollup (2 subtests): Daily rollup tests
+- TestCleanOldReadings (2 subtests): Cleanup function tests
 
 **Bugs Fixed:**
-- Weather icon showing rain when not raining (fixed rain calculation logic)
+- Weather icon showing moon in daytime (fixed day/night calculation to compare only time components)
 - Handler test nilness warnings (fixed with `=` instead of `:=`)
 - Ingestor hanging on startup (fixed timeout and retry logic)
 - RTL433 version parsing (fixed to use `-V` flag instead of `-v`)
@@ -1356,5 +1377,6 @@ func (r *RainTotals) Update(reading types.Reading) {
 - `core/handlers/handlers.go`: Added system info handlers
 - `core/handlers/handlers_test.go`: Added new tests, fixed nilness warnings
 - `core/main.go`: Registered new routes
-- `core/static/index.html`: Added rtl_433 version display
+- `core/static/index.html`: Added rtl_433 version display, fixed day/night calculation
 - `ingestor/main.go`: Added version sending and logging
+- `core/database/database_test.go`: Created comprehensive database tests (NEW FILE)
